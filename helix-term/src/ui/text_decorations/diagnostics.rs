@@ -260,12 +260,12 @@ impl Decoration for InlineDiagnostics<'_> {
                     .iter()
                     .filter(|(diag, _)| eol_filter <= diag.severity());
                 match filter {
-                    DiagnosticFilter::Enable(filter) => eol_diganogistcs
-                        .filter(|(diag, _)| filter > diag.severity())
-                        .max_by_key(|(diagnostic, _)| diagnostic.severity),
-                    DiagnosticFilter::Disable => {
-                        eol_diganogistcs.max_by_key(|(diagnostic, _)| diagnostic.severity)
+                    DiagnosticFilter::Enable(filter) if !self.state.config.hidden => {
+                        eol_diganogistcs
+                            .filter(|(diag, _)| filter > diag.severity())
+                            .max_by_key(|(diagnostic, _)| diagnostic.severity)
                     }
+                    _ => eol_diganogistcs.max_by_key(|(diagnostic, _)| diagnostic.severity),
                 }
             }
             DiagnosticFilter::Disable => None,
