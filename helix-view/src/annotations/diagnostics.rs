@@ -51,6 +51,7 @@ impl Serialize for DiagnosticFilter {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct InlineDiagnosticsConfig {
+    pub hidden: bool,
     pub cursor_line: DiagnosticFilter,
     pub other_lines: DiagnosticFilter,
     pub min_diagnostic_width: u16,
@@ -109,6 +110,7 @@ impl InlineDiagnosticsConfig {
 impl Default for InlineDiagnosticsConfig {
     fn default() -> Self {
         InlineDiagnosticsConfig {
+            hidden: true,
             cursor_line: DiagnosticFilter::Disable,
             other_lines: DiagnosticFilter::Disable,
             min_diagnostic_width: 40,
@@ -233,6 +235,12 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
     }
 
     pub fn compute_line_diagnostics(&mut self) {
+        // if the inline diagnostics are toggled off then clear the stack to hide all diagnostics
+        if self.config.hidden {
+            self.stack.clear();
+            return;
+        }
+
         let filter = if self.cursor_line {
             self.cursor_line = false;
             self.config.cursor_line
