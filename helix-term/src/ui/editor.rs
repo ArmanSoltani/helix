@@ -192,13 +192,17 @@ impl EditorView {
             .diagnostics_handler
             .show_cursorline_diagnostics(doc, view.id);
         let inline_diagnostic_config = config.inline_diagnostics.prepare(width, enable_cursor_line);
-        decorations.add_decoration(InlineDiagnostics::new(
-            doc,
-            theme,
-            primary_cursor,
-            inline_diagnostic_config,
-            config.end_of_line_diagnostics,
-        ));
+
+        if view.diagnostics_handler.active || !inline_diagnostic_config.hidden {
+            decorations.add_decoration(InlineDiagnostics::new(
+                doc,
+                theme,
+                primary_cursor,
+                inline_diagnostic_config,
+                config.end_of_line_diagnostics,
+            ));
+        }
+
         render_document(
             surface,
             inner,
