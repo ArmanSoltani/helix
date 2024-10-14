@@ -426,7 +426,9 @@ impl Prompt {
             height,
         );
 
-        if completion_area.height > 0 && !self.completion.is_empty() {
+        let editor_config = cx.editor.config.load();
+
+        if editor_config.auto_info && completion_area.height > 0 && !self.completion.is_empty() {
             let area = completion_area;
             let background = theme.get("ui.menu");
 
@@ -465,34 +467,36 @@ impl Prompt {
             }
         }
 
-        if let Some(doc) = (self.doc_fn)(&self.line) {
-            let mut text = ui::Text::new(doc.to_string());
+        if editor_config.auto_info {
+            if let Some(doc) = (self.doc_fn)(&self.line) {
+                let mut text = ui::Text::new(doc.to_string());
 
-            let max_width = BASE_WIDTH * 3;
-            let padding = 1;
+                let max_width = BASE_WIDTH * 3;
+                let padding = 1;
 
-            let viewport = area;
+                let viewport = area;
 
-            let (_width, height) = ui::text::required_size(&text.contents, max_width);
+                let (_width, height) = ui::text::required_size(&text.contents, max_width);
 
-            let area = viewport.intersection(Rect::new(
-                completion_area.x,
-                completion_area.y.saturating_sub(height + padding * 2),
-                max_width,
-                height + padding * 2,
-            ));
+                let area = viewport.intersection(Rect::new(
+                    completion_area.x,
+                    completion_area.y.saturating_sub(height + padding * 2),
+                    max_width,
+                    height + padding * 2,
+                ));
 
-            let background = theme.get("ui.help");
-            surface.clear_with(area, background);
+                let background = theme.get("ui.help");
+                surface.clear_with(area, background);
 
-            let block = Block::bordered()
-                // .title(self.title.as_str())
-                .border_style(background);
+                let block = Block::bordered()
+                    // .title(self.title.as_str())
+                    .border_style(background);
 
-            let inner = block.inner(area).inner(Margin::horizontal(1));
+                let inner = block.inner(area).inner(Margin::horizontal(1));
 
-            block.render(area, surface);
-            text.render(inner, surface, cx);
+                block.render(area, surface);
+                text.render(inner, surface, cx);
+            }
         }
 
         let line = area.height - 1;
