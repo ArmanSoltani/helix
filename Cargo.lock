@@ -1341,6 +1341,7 @@ dependencies = [
  "fern",
  "helix-core",
  "helix-stdx",
+ "libc",
  "log",
  "serde",
  "serde_json",
