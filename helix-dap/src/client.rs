@@ -169,15 +169,26 @@ impl Client {
     ) -> Result<(Self, UnboundedReceiver<Payload>)> {
         let port = Self::get_port().await.unwrap();
 
-        let process = Command::new(cmd)
+        let mut command_mut = Command::new(cmd);
+        let mut command_mut = command_mut
             .args(args)
             .args(port_format.replace("{}", &port.to_string()).split(' '))
             // silence messages
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            // Do not kill debug adapter when leaving, it should exit automatically
-            .spawn()?;
+            .stderr(Stdio::null());
+
+        if cfg!(unix) {
+            unsafe {
+                command_mut = command_mut.pre_exec(|| match libc::setsid() {
+                    -1 => Err(std::io::Error::last_os_error()),
+                    _ => Ok(()),
+                });
+            }
+        }
+
+        // Do not kill debug adapter when leaving, it should exit automatically
+        let process = command_mut.kill_on_drop(true).spawn()?;
 
         // Wait for adapter to become ready for connection
         time::sleep(time::Duration::from_millis(500)).await;

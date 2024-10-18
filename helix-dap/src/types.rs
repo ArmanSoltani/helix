@@ -781,6 +781,8 @@ pub mod events {
         // ProgressEnd(),
         // Invalidated(),
         Memory(Memory),
+        #[serde(untagged)]
+        Unknown(serde_json::Value),
     }
 
     #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
