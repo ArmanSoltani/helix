@@ -893,20 +893,24 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
 
                     format!("{path}:{}", item.range.start.line + 1).into()
                 }),
-                ui::PickerColumn::new("line", |item: &Location, _cwdir: &std::path::PathBuf| {
-                    if let Some(Ok(file)) = item.uri.as_path().map(File::open) {
-                        let reader = BufReader::new(file);
-                        let line = reader.lines().nth(item.range.start.line as usize);
+                ui::PickerColumn::with_custom_truncation(
+                    "line",
+                    |item: &Location, _cwdir: &std::path::PathBuf| {
+                        if let Some(Ok(file)) = item.uri.as_path().map(File::open) {
+                            let reader = BufReader::new(file);
+                            let line = reader.lines().nth(item.range.start.line as usize);
 
-                        if let Some(Ok(line)) = line {
-                            line.trim().to_string().into()
+                            if let Some(Ok(line)) = line {
+                                line.trim().to_string().into()
+                            } else {
+                                "".into()
+                            }
                         } else {
-                            "".into()
+                            "CANNOT READ FILE".into()
                         }
-                    } else {
-                        "CANNOT READ FILE".into()
-                    }
-                }),
+                    },
+                    ui::PickerColumnTruncated::End,
+                ),
             ];
 
             let picker = Picker::new(columns, 0, locations, cwdir, |cx, location, action| {
