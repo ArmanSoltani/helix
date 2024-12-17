@@ -870,7 +870,7 @@ fn goto_impl(
         [] => unreachable!("`locations` should be non-empty for `goto_impl`"),
         _locations => {
             let columns = [
-                ui::PickerColumn::new("location", |item: &Location, cwdir: &std::path::PathBuf| {
+                ui::PickerColumn::new("path", |item: &Location, cwdir: &std::path::PathBuf| {
                     let path: String = if let Some(path) = item.uri.as_path() {
                         path::get_truncated_path(path.strip_prefix(cwdir).unwrap_or(path))
                             .to_string_lossy()
@@ -901,7 +901,7 @@ fn goto_impl(
                 ),
             ];
 
-            let picker = Picker::new(columns, 0, locations, cwdir, move |cx, location, action| {
+            let picker = Picker::new(columns, 1, locations, cwdir, move |cx, location, action| {
                 jump_to_location(cx.editor, location, offset_encoding, action)
             })
             .with_preview(move |_editor, location| location_to_file_location(location));
