@@ -31,6 +31,13 @@ pub enum Constraint {
     Min(u16),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Truncation {
+    None,
+    Start,
+    End,
+}
+
 impl Constraint {
     pub fn apply(&self, length: u16) -> u16 {
         match *self {
