@@ -21,7 +21,7 @@ use thiserror::Error;
 use tokio::sync::mpsc::Sender;
 use tui::{
     buffer::Buffer as Surface,
-    layout::Constraint,
+    layout::{Constraint, Truncation},
     text::{Span, Spans},
     widgets::{Block, BorderType, Cell, Row, Table},
 };
@@ -177,6 +177,12 @@ impl<T, D> Injector<T, D> {
 
 type ColumnFormatFn<T, D> = for<'a> fn(&'a T, &'a D) -> Cell<'a>;
 
+pub enum Truncated {
+    None,
+    Start,
+    End,
+}
+
 pub struct Column<T, D> {
     name: Arc<str>,
     format: ColumnFormatFn<T, D>,
@@ -185,6 +191,7 @@ pub struct Column<T, D> {
     /// global search) is not used for filtering twice.
     filter: bool,
     hidden: bool,
+    truncated: Truncated,
 }
 
 impl<T, D> Column<T, D> {
@@ -194,6 +201,21 @@ impl<T, D> Column<T, D> {
             format,
             filter: true,
             hidden: false,
+            truncated: Truncated::Start,
+        }
+    }
+
+    pub fn with_custom_truncation(
+        name: impl Into<Arc<str>>,
+        format: ColumnFormatFn<T, D>,
+        truncated: Truncated,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            format,
+            filter: true,
+            hidden: false,
+            truncated,
         }
     }
 
@@ -206,6 +228,7 @@ impl<T, D> Column<T, D> {
             format,
             filter: false,
             hidden: true,
+            truncated: Truncated::Start,
         }
     }
 
@@ -773,12 +796,22 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             }))
         });
 
+        let table_column_truncations: Vec<_> = self
+            .columns
+            .iter()
+            .map(|col| match col.truncated {
+                Truncated::None => Truncation::None,
+                Truncated::Start => Truncation::Start,
+                Truncated::End => Truncation::End,
+            })
+            .collect();
         let mut table = Table::new(options)
             .style(text_style)
             .highlight_style(selected)
             .highlight_symbol(" > ")
             .column_spacing(1)
-            .widths(&self.widths);
+            .widths(&self.widths)
+            .truncations(&table_column_truncations);
 
         // -- Header
         if self.columns.len() > 1 {
