@@ -871,10 +871,12 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
         _locations => {
             let columns = [
                 ui::PickerColumn::new("location", |item: &Location, cwdir: &std::path::PathBuf| {
-                    let path = if let Some(path) = item.uri.as_path() {
-                        path.strip_prefix(cwdir).unwrap_or(path).to_string_lossy()
+                    let path: String = if let Some(path) = item.uri.as_path() {
+                        path::get_truncated_path(path.strip_prefix(cwdir).unwrap_or(path))
+                            .to_string_lossy()
+                            .to_string()
                     } else {
-                        item.uri.to_string().into()
+                        Default::default()
                     };
 
                     format!("{path}:{}", item.range.start.line + 1).into()
