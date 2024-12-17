@@ -1,6 +1,6 @@
 use crate::{
     buffer::Buffer,
-    layout::Constraint,
+    layout::{Constraint, Truncation},
     text::Text,
     widgets::{Block, Widget},
 };
@@ -192,6 +192,8 @@ pub struct Table<'a> {
     style: Style,
     /// Width constraints for each column
     widths: &'a [Constraint],
+    // truncation for each column
+    truncations: &'a [Truncation],
     /// Space between each column
     column_spacing: u16,
     /// Style used to render the selected row
@@ -213,6 +215,7 @@ impl<'a> Table<'a> {
             block: None,
             style: Style::default(),
             widths: &[],
+            truncations: &[],
             column_spacing: 1,
             highlight_style: Style::default(),
             highlight_symbol: None,
@@ -241,6 +244,11 @@ impl<'a> Table<'a> {
             "Percentages should be between 0 and 100 inclusively."
         );
         self.widths = widths;
+        self
+    }
+
+    pub fn truncations(mut self, truncations: &'a [Truncation]) -> Self {
+        self.truncations = truncations;
         self
     }
 
@@ -376,6 +384,20 @@ impl Table<'_> {
 
         let has_selection = state.selected.is_some();
         let columns_widths = self.get_columns_widths(table_area.width, has_selection);
+        let columns_truncations = if self.truncations.len() == self.widths.len() {
+            self.truncations.to_vec()
+        } else {
+            self.widths
+                .iter()
+                .map(|_| {
+                    if truncate {
+                        Truncation::Start
+                    } else {
+                        Truncation::None
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
         let highlight_symbol = self.highlight_symbol.unwrap_or("");
         let blank_symbol = " ".repeat(highlight_symbol.width());
         let mut current_height = 0;
@@ -397,7 +419,11 @@ impl Table<'_> {
             if has_selection {
                 col += (highlight_symbol.width() as u16).min(table_area.width);
             }
-            for (width, cell) in columns_widths.iter().zip(header.cells.iter()) {
+            for ((width, cell), truncation) in columns_widths
+                .iter()
+                .zip(header.cells.iter())
+                .zip(columns_truncations.iter())
+            {
                 render_cell(
                     buf,
                     cell,
@@ -407,7 +433,7 @@ impl Table<'_> {
                         width: *width,
                         height: max_header_height,
                     },
-                    truncate,
+                    truncation,
                 );
                 col += *width + self.column_spacing;
             }
@@ -454,7 +480,11 @@ impl Table<'_> {
                 buf.set_style(table_row_area, self.highlight_style);
             }
             let mut col = table_row_start_col;
-            for (width, cell) in columns_widths.iter().zip(table_row.cells.iter()) {
+            for ((width, cell), truncation) in columns_widths
+                .iter()
+                .zip(table_row.cells.iter())
+                .zip(columns_truncations.iter())
+            {
                 render_cell(
                     buf,
                     cell,
@@ -464,7 +494,7 @@ impl Table<'_> {
                         width: *width,
                         height: table_row.height,
                     },
-                    truncate,
+                    truncation,
                 );
                 col += *width + self.column_spacing;
             }
@@ -472,17 +502,21 @@ impl Table<'_> {
     }
 }
 
-fn render_cell(buf: &mut Buffer, cell: &Cell, area: Rect, truncate: bool) {
+fn render_cell(buf: &mut Buffer, cell: &Cell, area: Rect, truncation: &Truncation) {
     buf.set_style(area, cell.style);
     for (i, spans) in cell.content.lines.iter().enumerate() {
         if i as u16 >= area.height {
             break;
         }
-        if truncate {
-            buf.set_spans_truncated(area.x, area.y + i as u16, spans, area.width);
-        } else {
-            buf.set_spans(area.x, area.y + i as u16, spans, area.width);
-        }
+        match truncation {
+            Truncation::None => buf.set_spans(area.x, area.y + i as u16, spans, area.width),
+            Truncation::Start => {
+                buf.set_spans_truncated_at_start(area.x, area.y + i as u16, spans, area.width)
+            }
+            Truncation::End => {
+                buf.set_spans_truncated_at_end(area.x, area.y + i as u16, spans, area.width)
+            }
+        };
     }
 }
 
