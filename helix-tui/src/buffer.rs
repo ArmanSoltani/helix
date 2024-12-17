@@ -432,7 +432,13 @@ impl Buffer {
         (x_offset as u16, y)
     }
 
-    pub fn set_spans_truncated(&mut self, x: u16, y: u16, spans: &Spans, width: u16) -> (u16, u16) {
+    pub fn set_spans_truncated_at_start(
+        &mut self,
+        x: u16,
+        y: u16,
+        spans: &Spans,
+        width: u16,
+    ) -> (u16, u16) {
         // prevent panic if out of range
         if !self.in_bounds(x, y) || width == 0 {
             return (x, y);
@@ -470,6 +476,53 @@ impl Buffer {
                 x_offset += width;
             }
         }
+        (x_offset as u16, y)
+    }
+
+    pub fn set_spans_truncated_at_end(
+        &mut self,
+        x: u16,
+        y: u16,
+        spans: &Spans,
+        width: u16,
+    ) -> (u16, u16) {
+        // prevent panic if out of range
+        if !self.in_bounds(x, y) || width == 0 {
+            return (x, y);
+        }
+
+        let mut x_offset = x as usize;
+        let max_offset = min(self.area.right(), width.saturating_add(x));
+        let mut index = self.index_of(x, y);
+
+        let content_width = spans.width();
+        let truncated = content_width > width as usize;
+
+        for span in spans.0.iter() {
+            for s in span.content.graphemes(true) {
+                let width = s.width();
+                if width == 0 {
+                    continue;
+                }
+
+                if width > max_offset.saturating_sub(x_offset as u16) as usize - 1 {
+                    break;
+                }
+
+                self.content[index].set_symbol(s);
+                self.content[index].set_style(span.style);
+                for i in index + 1..index {
+                    self.content[i].reset();
+                }
+                index += width;
+                x_offset += width;
+            }
+        }
+
+        if truncated {
+            self.content[index].set_symbol("…");
+        }
+
         (x_offset as u16, y)
     }
 
@@ -727,6 +780,34 @@ mod tests {
         // Width truncation:
         buffer.set_string(0, 0, "123456", Style::default());
         assert_eq!(buffer, Buffer::with_lines(vec!["12345"]));
+    }
+
+    #[test]
+    fn buffer_set_spans_truncated() {
+        let area = Rect::new(0, 0, 5, 1);
+        let mut buffer = Buffer::empty(area);
+
+        let spans = Spans(vec![Span::from("aaa")]);
+        buffer.set_spans_truncated_at_start(0, 0, &spans, 4);
+        assert_eq!(buffer, Buffer::with_lines(vec!["aaa  "]));
+
+        let spans = Spans(vec![Span::from("aaa")]);
+        buffer.set_spans_truncated_at_end(0, 0, &spans, 4);
+        assert_eq!(buffer, Buffer::with_lines(vec!["aaa  "]));
+
+        let spans = Spans(vec![Span::from("aaaaaaaaaaaaaa")]);
+        buffer.set_spans_truncated_at_start(0, 0, &spans, 4);
+        assert_eq!(buffer, Buffer::with_lines(vec!["…aaa "]));
+
+        let spans = Spans(vec![Span::from("aaaaaaaaaaaaaa")]);
+        buffer.set_spans_truncated_at_end(0, 0, &spans, 4);
+        let expected = Buffer::with_lines(vec!["aaa… "]);
+        assert_eq!(
+            buffer,
+            expected,
+            "diff actual->expected: {:#?}",
+            buffer.diff(&expected)
+        );
     }
 
     #[test]
