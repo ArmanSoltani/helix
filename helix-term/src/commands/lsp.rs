@@ -32,7 +32,15 @@ use crate::{
     ui::{self, overlay::overlaid, FileLocation, Picker, Popup, PromptEvent},
 };
 
-use std::{cmp::Ordering, collections::HashSet, fmt::Display, future::Future, path::Path};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt::Display,
+    fs::File,
+    future::Future,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 /// Gets the first language server that is attached to a document which supports a specific feature.
 /// If there is no configured language server that supports the feature, this displays a status message.
@@ -850,9 +858,8 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
         }
         [] => unreachable!("`locations` should be non-empty for `goto_impl`"),
         _locations => {
-            let columns = [ui::PickerColumn::new(
-                "location",
-                |item: &Location, cwdir: &std::path::PathBuf| {
+            let columns = [
+                ui::PickerColumn::new("location", |item: &Location, cwdir: &std::path::PathBuf| {
                     let path = if let Some(path) = item.uri.as_path() {
                         path.strip_prefix(cwdir).unwrap_or(path).to_string_lossy()
                     } else {
@@ -860,8 +867,22 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
                     };
 
                     format!("{path}:{}", item.range.start.line + 1).into()
-                },
-            )];
+                }),
+                ui::PickerColumn::new("line", |item: &Location, _cwdir: &std::path::PathBuf| {
+                    if let Some(Ok(file)) = item.uri.as_path().map(File::open) {
+                        let reader = BufReader::new(file);
+                        let line = reader.lines().nth(item.range.start.line as usize);
+
+                        if let Some(Ok(line)) = line {
+                            line.trim().to_string().into()
+                        } else {
+                            "".into()
+                        }
+                    } else {
+                        "CANNOT READ FILE".into()
+                    }
+                }),
+            ];
 
             let picker = Picker::new(columns, 0, locations, cwdir, |cx, location, action| {
                 jump_to_location(cx.editor, location, action)
