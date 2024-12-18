@@ -15,7 +15,7 @@ use super::{align_view, push_jump, Align, Context, Editor};
 
 use helix_core::{
     diagnostic::DiagnosticProvider, syntax::LanguageServerFeature,
-    text_annotations::InlineAnnotation, Selection, Uri,
+    text_annotations::InlineAnnotation, BookmarkUri, Selection, Uri,
 };
 use helix_stdx::path;
 use helix_view::{
@@ -1037,6 +1037,56 @@ pub fn goto_reference(cx: &mut Context) {
         };
         Ok(Callback::EditorCompositor(Box::new(call)))
     });
+}
+
+pub fn goto_bookmark(cx: &mut Context) {
+    let cwdir = helix_stdx::env::current_working_dir();
+
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    if let Ok(bookmarks_data) = std::fs::read_to_string(bookmark_file_path) {
+        cx.callback.push(Box::new(
+            move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
+                let bookmarks: Vec<BookmarkUri> = bookmarks_data
+                    .lines()
+                    .map(|l| serde_json::from_str(l).unwrap())
+                    .collect();
+
+                let columns = [
+                    ui::PickerColumn::new(
+                        "path",
+                        |item: &BookmarkUri, cwdir: &std::path::PathBuf| {
+                            let path = Path::new(&item.path)
+                                .strip_prefix(cwdir)
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or(item.path.clone());
+
+                            format!("{path}:{}", item.line + 1).into()
+                        },
+                    ),
+                    ui::PickerColumn::with_custom_truncation(
+                        "name",
+                        |item: &BookmarkUri, _cwdir: &std::path::PathBuf| item.name.clone().into(),
+                        ui::PickerColumnTruncated::End,
+                    ),
+                ];
+
+                let picker = Picker::new(
+                    columns,
+                    1,
+                    bookmarks,
+                    cwdir,
+                    move |_cx, _location, _action| {
+                        // jump_to_location(cx.editor, location, offset_encoding, action)
+                    },
+                );
+                // .with_preview(move |_editor, location| location_to_file_location(location));
+                compositor.push(Box::new(overlaid(picker)));
+            },
+        ));
+    }
 }
 
 pub fn signature_help(cx: &mut Context) {
