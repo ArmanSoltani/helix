@@ -231,6 +231,7 @@ where
                     Some(Severity::Info) => counts.1 += 1,
                     Some(Severity::Warning) => counts.2 += 1,
                     Some(Severity::Error) => counts.3 += 1,
+                    Some(Severity::Bookmark) => (),
                 }
                 counts
             });
@@ -296,6 +297,7 @@ where
         Severity::Info => info != 0,
         Severity::Warning => warnings != 0,
         Severity::Error => errors != 0,
+        Severity::Bookmark => false, // don't show warning for bookmarks
     }) {
         return;
     }

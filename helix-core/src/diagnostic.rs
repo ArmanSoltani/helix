@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum Severity {
     Hint,
     Info,
+    Bookmark,
     Warning,
     Error,
 }
@@ -68,13 +69,14 @@ pub enum DiagnosticProvider {
         /// not clear the pull diagnostics and vice-versa.
         identifier: Option<Arc<str>>,
     },
-    // Future internal features can go here...
+    Fake, // Future internal features can go here...
 }
 
 impl DiagnosticProvider {
     pub fn language_server_id(&self) -> Option<LanguageServerId> {
         match self {
             Self::Lsp { server_id, .. } => Some(*server_id),
+            Self::Fake => None,
             // _ => None,
         }
     }

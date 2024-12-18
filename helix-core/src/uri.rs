@@ -4,6 +4,8 @@ use std::{
     sync::Arc,
 };
 
+use serde::{Deserialize, Serialize};
+
 /// A generic pointer to a file location.
 ///
 /// Currently this type only supports paths to local files.
@@ -104,6 +106,21 @@ impl TryFrom<&url::Url> for Uri {
             kind,
         })
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BookmarkUri {
+    pub name: String,
+    pub path: String,
+    pub line: usize,
+}
+
+pub fn actualize_bookmarks(bookmarks: Vec<BookmarkUri>) -> Vec<BookmarkUri> {
+    bookmarks
+        .into_iter()
+        // remove bookmarks pointing to file that doesn't exist anymore
+        .filter(|bookmark| Path::new(&bookmark.path).exists())
+        .collect()
 }
 
 #[cfg(test)]

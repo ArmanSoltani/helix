@@ -1,11 +1,13 @@
 use crate::{
     align_view,
     annotations::diagnostics::InlineDiagnostics,
-    document::{DocumentColorSwatches, DocumentInlayHints},
+    convert_bookmarks_to_fake_diagnostics,
+    document::DocumentColorSwatches,
+    document::DocumentInlayHints,
     editor::{GutterConfig, GutterType},
     graphics::Rect,
     handlers::diagnostics::DiagnosticsHandler,
-    Align, Document, DocumentId, Theme, ViewId,
+    read_and_update_document_bookmarks_cache, Align, Document, DocumentId, Theme, ViewId,
 };
 
 use helix_core::{
@@ -501,8 +503,15 @@ impl View {
                 .selection(self.id)
                 .primary()
                 .cursor(doc.text().slice(..));
+
+            let bookmarks = read_and_update_document_bookmarks_cache(doc);
+            let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+            let mut diagnostics = doc.diagnostics.clone();
+            diagnostics.extend(bookmark_diagnostics);
+            diagnostics.sort_by_key(|d| d.range.start);
+
             text_annotations.add_line_annotation(InlineDiagnostics::new(
-                doc,
+                diagnostics,
                 cursor,
                 width,
                 doc.view_offset(self.id).horizontal_offset,

@@ -3,9 +3,10 @@ use std::fmt::Write;
 use helix_core::syntax::config::LanguageServerFeature;
 
 use crate::{
+    convert_bookmarks_to_fake_diagnostics,
     editor::GutterType,
     graphics::{Style, UnderlineStyle},
-    Document, Editor, Theme, View,
+    read_and_update_document_bookmarks_cache, Document, Editor, Theme, View,
 };
 
 fn count_digits(n: usize) -> usize {
@@ -56,7 +57,13 @@ pub fn diagnostic<'doc>(
     let error = theme.get("error");
     let info = theme.get("info");
     let hint = theme.get("hint");
-    let diagnostics = &doc.diagnostics;
+    let bookmark = theme.get("bookmark");
+
+    let bookmarks = read_and_update_document_bookmarks_cache(doc);
+    let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+    let mut diagnostics = doc.diagnostics.clone();
+    diagnostics.extend(bookmark_diagnostics);
+    diagnostics.sort_by_key(|d| d.range.start);
 
     Box::new(
         move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
@@ -72,17 +79,33 @@ pub fn diagnostic<'doc>(
                         && d.provider.language_server_id().map_or(true, |id| {
                             doc.language_servers_with_feature(LanguageServerFeature::Diagnostics)
                                 .any(|ls| ls.id() == id)
+                                || d.severity == Some(Severity::Bookmark)
                         })
                 });
-            diagnostics_on_line.max_by_key(|d| d.severity).map(|d| {
-                write!(out, "●").ok();
-                match d.severity {
-                    Some(Severity::Error) => error,
-                    Some(Severity::Warning) | None => warning,
-                    Some(Severity::Info) => info,
-                    Some(Severity::Hint) => hint,
-                }
-            })
+            diagnostics_on_line
+                .max_by_key(|d| d.severity)
+                .map(|d| match d.severity {
+                    Some(Severity::Error) => {
+                        write!(out, "●").ok();
+                        error
+                    }
+                    Some(Severity::Warning) | None => {
+                        write!(out, "●").ok();
+                        warning
+                    }
+                    Some(Severity::Info) => {
+                        write!(out, "●").ok();
+                        info
+                    }
+                    Some(Severity::Hint) => {
+                        write!(out, "●").ok();
+                        hint
+                    }
+                    Some(Severity::Bookmark) => {
+                        write!(out, "●").ok();
+                        bookmark
+                    }
+                })
         },
     )
 }

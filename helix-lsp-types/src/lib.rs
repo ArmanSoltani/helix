@@ -455,10 +455,14 @@ impl DiagnosticSeverity {
     pub const ERROR: DiagnosticSeverity = DiagnosticSeverity(1);
     /// Reports a warning.
     pub const WARNING: DiagnosticSeverity = DiagnosticSeverity(2);
+
+    /// Fake Bookmark diagnostic severity
+    pub const BOOKMARK: DiagnosticSeverity = DiagnosticSeverity(3);
+
     /// Reports an information.
-    pub const INFORMATION: DiagnosticSeverity = DiagnosticSeverity(3);
+    pub const INFORMATION: DiagnosticSeverity = DiagnosticSeverity(4);
     /// Reports a hint.
-    pub const HINT: DiagnosticSeverity = DiagnosticSeverity(4);
+    pub const HINT: DiagnosticSeverity = DiagnosticSeverity(5);
 }
 }
 

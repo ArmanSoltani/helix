@@ -3,10 +3,10 @@ use helix_lsp::{
     block_on,
     lsp::{
         self, CodeAction, CodeActionOrCommand, CodeActionTriggerKind, DiagnosticSeverity,
-        NumberOrString,
+        NumberOrString, Range,
     },
     util::{diagnostic_to_lsp_diagnostic, lsp_range_to_range, range_to_lsp_range},
-    Client, LanguageServerId, OffsetEncoding,
+    Client, LanguageServerId, OffsetEncoding, Position,
 };
 use tokio_stream::StreamExt;
 use tui::{text::Span, widgets::Row};
@@ -15,7 +15,7 @@ use super::{align_view, push_jump, Align, Context, Editor};
 
 use helix_core::{
     diagnostic::DiagnosticProvider, syntax::config::LanguageServerFeature,
-    text_annotations::InlineAnnotation, Selection, Uri,
+    text_annotations::InlineAnnotation, uri::actualize_bookmarks, BookmarkUri, Selection, Uri,
 };
 use helix_stdx::path;
 use helix_view::{
@@ -1055,6 +1055,61 @@ pub fn goto_reference(cx: &mut Context) {
         };
         Ok(Callback::EditorCompositor(Box::new(call)))
     });
+}
+
+pub fn goto_bookmark(cx: &mut Context) {
+    let cwdir = helix_stdx::env::current_working_dir();
+
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
+    log::info!("Read bookmark data: {bookmarks_data}");
+    cx.callback.push(Box::new(
+        move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
+            let bookmarks: Vec<BookmarkUri> = bookmarks_data
+                .lines()
+                .filter(|line| !line.is_empty())
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
+            let bookmarks = actualize_bookmarks(bookmarks);
+
+            let columns = [
+                ui::PickerColumn::new("path", |item: &BookmarkUri, cwdir: &std::path::PathBuf| {
+                    let path = Path::new(&item.path)
+                        .strip_prefix(cwdir)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or(item.path.clone());
+
+                    format!("{path}:{}", item.line + 1).into()
+                }),
+                ui::PickerColumn::with_custom_truncation(
+                    "name",
+                    |item: &BookmarkUri, _cwdir: &std::path::PathBuf| item.name.clone().into(),
+                    ui::PickerColumnTruncated::End,
+                ),
+            ];
+
+            let picker = Picker::new(columns, 1, bookmarks, cwdir, move |cx, bookmark, action| {
+                let (view, doc) = current!(cx.editor);
+                push_jump(view, doc);
+
+                let path = Path::new(&bookmark.path);
+                let range = Range::new(
+                    Position::new(bookmark.line as u32, 0),
+                    Position::new(bookmark.line as u32, 0),
+                );
+                jump_to_position(cx.editor, path, range, OffsetEncoding::Utf16, action)
+            })
+            .with_preview(move |_editor, bookmark| {
+                let path = Path::new(&bookmark.path);
+                let line = Some((bookmark.line, bookmark.line));
+                Some((path.into(), line))
+            });
+            compositor.push(Box::new(overlaid(picker)));
+        },
+    ));
 }
 
 pub fn signature_help(cx: &mut Context) {

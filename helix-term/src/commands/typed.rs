@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::io::BufReader;
+use std::io::Write as _;
 use std::ops::{self, Deref};
 
 use crate::job::Job;
@@ -10,6 +11,8 @@ use helix_core::command_line::{Args, Flag, Signature, Token, TokenKind};
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
 use helix_core::line_ending;
+use helix_core::uri::actualize_bookmarks;
+use helix_core::uri::BookmarkUri;
 use helix_stdx::path::home_dir;
 use helix_view::document::{read_to_string, DEFAULT_LANGUAGE_NAME};
 use helix_view::editor::{CloseError, ConfigEvent};
@@ -2423,6 +2426,140 @@ fn run_shell_command(
     Ok(())
 }
 
+fn create_bookmark(
+    cx: &mut compositor::Context,
+    args: Args,
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let (view, doc) = current!(cx.editor);
+
+    let bookmark_name = args.join(" ");
+    let uri = doc.uri().unwrap();
+    let current_line = doc.text().char_to_line(
+        doc.selection(view.id)
+            .primary()
+            .cursor(doc.text().slice(..)),
+    );
+
+    let bookmark_url = BookmarkUri {
+        name: bookmark_name,
+        path: uri.as_path().unwrap().to_string_lossy().to_string(),
+        line: current_line,
+    };
+    let serialized_bookmark = serde_json::to_string(&bookmark_url).unwrap();
+
+    let mut cwdir = helix_stdx::env::current_working_dir();
+    cwdir.push(".bookmarks");
+    let bookmark_file = cwdir.as_path().to_string_lossy().to_string();
+    log::info!("writing bookmark to {bookmark_file}");
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(bookmark_file)
+        .unwrap();
+    writeln!(file, "{serialized_bookmark}").unwrap();
+
+    // invalidate bookmark cache
+    *cx.editor.bookmarks_cache.borrow_mut() = None;
+    *doc.bookmarks_cache.borrow_mut() = None;
+
+    log::info!("creating bookmark {serialized_bookmark}");
+
+    Ok(())
+}
+
+fn clear_bookmark(
+    cx: &mut compositor::Context,
+    _args: Args,
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let (view, doc) = current!(cx.editor);
+
+    let uri = doc.uri().unwrap();
+    let cur_path = uri.as_path().unwrap().to_string_lossy().to_string();
+    let current_line = doc.text().char_to_line(
+        doc.selection(view.id)
+            .primary()
+            .cursor(doc.text().slice(..)),
+    );
+
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = &bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    if let Ok(bookmarks_data) = std::fs::read_to_string(bookmark_file_path) {
+        let bookmarks: Vec<BookmarkUri> = bookmarks_data
+            .lines()
+            .filter(|line| !line.is_empty())
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let bookmarks = actualize_bookmarks(bookmarks);
+        let n = bookmarks.len();
+
+        let bookmarks_update: Vec<_> = bookmarks
+            .into_iter()
+            .filter(|bookmark| !(bookmark.path == cur_path && bookmark.line == current_line))
+            .collect();
+
+        if bookmarks_update.len() != n {
+            log::info!("Removing bookmark at the current position");
+        } else {
+            log::info!("No bookmark found at the current position");
+        }
+
+        let new_content = bookmarks_update
+            .into_iter()
+            .map(|bookmark| serde_json::to_string(&bookmark).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        std::fs::write(bookmark_file_path, format!("{new_content}\n"))?;
+
+        // invalidate bookmark cache
+        *cx.editor.bookmarks_cache.borrow_mut() = None;
+        *doc.bookmarks_cache.borrow_mut() = None;
+
+        Ok(())
+    } else {
+        Ok(())
+    }
+}
+
+fn clear_all_bookmarks(
+    cx: &mut compositor::Context,
+    _args: Args,
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let mut cwdir = helix_stdx::env::current_working_dir();
+    cwdir.push(".bookmarks");
+    let bookmark_file = cwdir.as_path().to_string_lossy().to_string();
+    log::info!("clear bookmarks file at {bookmark_file}");
+
+    std::fs::write(bookmark_file, "")?;
+
+    // invalidate bookmark cache
+    *cx.editor.bookmarks_cache.borrow_mut() = None;
+    cx.editor
+        .documents
+        .values()
+        .for_each(|doc| *doc.bookmarks_cache.borrow_mut() = None);
+
+    Ok(())
+}
+
 fn reset_diff_change(
     cx: &mut compositor::Context,
     _args: Args,
@@ -3668,6 +3805,39 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
             ..Signature::DEFAULT
         },
     },
+    TypableCommand {
+        name: "create-bookmark",
+        aliases: &["bm"],
+        doc: "Create a bookmark at the current cursor location",
+        fun: create_bookmark,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "clear-all-bookmark",
+        aliases: &["bmca"],
+        doc: "Create all bookmarks",
+        fun: clear_all_bookmarks,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
+    },
+    TypableCommand {
+        name: "clear-bookmark",
+        aliases: &["bmc"],
+        doc: "Create bookmarks",
+        fun: clear_bookmark,
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
+    }
 ];
 
 pub static TYPABLE_COMMAND_MAP: Lazy<HashMap<&'static str, &'static TypableCommand>> =

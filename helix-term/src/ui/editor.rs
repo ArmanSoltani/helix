@@ -24,12 +24,13 @@ use helix_core::{
 };
 use helix_view::{
     annotations::diagnostics::DiagnosticFilter,
+    convert_bookmarks_to_fake_diagnostics,
     document::{Mode, SCRATCH_BUFFER_NAME},
     editor::{CompleteAction, CursorShapeConfig},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
-    Document, Editor, Theme, View,
+    read_and_update_document_bookmarks_cache, Document, Editor, Theme, View,
 };
 use std::{mem::take, num::NonZeroUsize, ops, path::PathBuf, rc::Rc};
 
@@ -191,11 +192,17 @@ impl EditorView {
         let inline_diagnostic_config = config.inline_diagnostics.prepare(width, enable_cursor_line);
 
         if view.diagnostics_handler.active || !inline_diagnostic_config.hidden {
+            let bookmarks = read_and_update_document_bookmarks_cache(doc);
+            let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+            let mut diagnostics = doc.diagnostics().to_vec();
+            diagnostics.extend(bookmark_diagnostics);
+            diagnostics.sort_by_key(|d| d.range.start);
+
             decorations.add_decoration(InlineDiagnostics::new(
-                doc,
+                diagnostics,
                 theme,
                 primary_cursor,
-                inline_diagnostic_config,
+                inline_diagnostic_config.clone(),
                 config.end_of_line_diagnostics,
             ));
         }
@@ -740,6 +747,7 @@ impl EditorView {
         let error = theme.get("error");
         let info = theme.get("info");
         let hint = theme.get("hint");
+        let bookmark = theme.get("bookmark");
 
         let mut lines = Vec::new();
         let background_style = theme.get("ui.background");
@@ -751,6 +759,7 @@ impl EditorView {
                     Some(Severity::Warning) | None => warning,
                     Some(Severity::Info) => info,
                     Some(Severity::Hint) => hint,
+                    Some(Severity::Bookmark) => bookmark,
                 });
             let text = Text::styled(&diagnostic.message, style);
             lines.extend(text.lines);
