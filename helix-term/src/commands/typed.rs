@@ -3,6 +3,7 @@ use std::io::BufReader;
 use std::io::Write as _;
 use std::ops::{self, Deref};
 
+use crate::actualize_bookmarks;
 use crate::job::Job;
 
 use super::*;
@@ -2362,6 +2363,7 @@ fn clear_bookmark(
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
+        let bookmarks = actualize_bookmarks(bookmarks);
         let n = bookmarks.len();
 
         let bookmarks_update: Vec<_> = bookmarks
