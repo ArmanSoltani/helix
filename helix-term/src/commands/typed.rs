@@ -2370,6 +2370,34 @@ fn run_shell_command(
     Ok(())
 }
 
+fn create_bookmark(
+    cx: &mut compositor::Context,
+    args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let (view, doc) = current!(cx.editor);
+
+    let bookmark_name = args.join(" ");
+    let uri = doc.uri().unwrap();
+    let current_line = doc.text().char_to_line(
+        doc.selection(view.id)
+            .primary()
+            .cursor(doc.text().slice(..)),
+    );
+
+    log::info!(
+        "CREATING BOOKMARK \"{bookmark_name}\" AT: {}:{}",
+        uri.as_path().unwrap().to_string_lossy(),
+        current_line + 1
+    );
+
+    Ok(())
+}
+
 fn reset_diff_change(
     cx: &mut compositor::Context,
     args: &[Cow<str>],
@@ -3193,6 +3221,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         doc: "Load a file into buffer",
         fun: read,
         signature: CommandSignature::positional(&[completers::filename]),
+    },
+    TypableCommand {
+        name: "create-bookmark",
+        aliases: &["bm"],
+        doc: "Create a bookmark at the current cursor location",
+        fun: create_bookmark,
+        signature: CommandSignature::all(completers::none)
     },
 ];
 
