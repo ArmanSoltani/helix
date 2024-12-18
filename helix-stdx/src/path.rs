@@ -205,6 +205,30 @@ pub fn get_truncated_path(path: impl AsRef<Path>) -> PathBuf {
     ret
 }
 
+pub fn shorted_path(path: String) -> String {
+    let res: Vec<_> = path.bytes().collect();
+    let crate_prefix = "/home/arman/.cargo/registry/src/index.crates.io-";
+    let rust_std = "/home/arman/.rustup/toolchains/";
+
+    if path.starts_with(rust_std) && path.contains("lib/rustlib/src/rust/library") {
+        if let Some(std_path) = path.split("lib/rustlib/src/rust/library").last() {
+            return format!("[rustlib] {std_path}");
+        }
+    }
+
+    if path.starts_with(crate_prefix) {
+        let mut start = crate_prefix.len();
+        while res[start] != b'/' {
+            start += 1;
+        }
+        start += 1;
+
+        return format!("[crate] {}", String::from_utf8_lossy(&res[start..]));
+    }
+
+    path
+}
+
 fn path_component_regex(windows: bool) -> String {
     // TODO: support backslash path escape on windows (when using git bash for example)
     let space_escape = if windows { r"[\^`]\s" } else { r"[\\]\s" };
