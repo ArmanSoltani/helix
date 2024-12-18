@@ -26,6 +26,7 @@ use helix_view::{
 };
 
 use crate::{
+    actualize_bookmarks,
     compositor::{self, Compositor},
     job::Callback,
     ui::{self, overlay::overlaid, FileLocation, Picker, Popup, PromptEvent},
@@ -1062,12 +1063,14 @@ pub fn goto_bookmark(cx: &mut Context) {
     let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
 
     let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
+    log::info!("Read bookmark data: {bookmarks_data}");
     cx.callback.push(Box::new(
         move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
             let bookmarks: Vec<BookmarkUri> = bookmarks_data
                 .lines()
                 .map(|l| serde_json::from_str(l).unwrap())
                 .collect();
+            let bookmarks = actualize_bookmarks(bookmarks);
 
             let columns = [
                 ui::PickerColumn::new("path", |item: &BookmarkUri, cwdir: &std::path::PathBuf| {
