@@ -3,10 +3,10 @@ use helix_lsp::{
     block_on,
     lsp::{
         self, CodeAction, CodeActionOrCommand, CodeActionTriggerKind, DiagnosticSeverity,
-        NumberOrString,
+        NumberOrString, Range,
     },
     util::{diagnostic_to_lsp_diagnostic, lsp_range_to_range, range_to_lsp_range},
-    Client, LanguageServerId, OffsetEncoding,
+    Client, LanguageServerId, OffsetEncoding, Position,
 };
 use tokio_stream::StreamExt;
 use tui::{text::Span, widgets::Row};
@@ -1088,16 +1088,23 @@ pub fn goto_bookmark(cx: &mut Context) {
                     ),
                 ];
 
-                let picker = Picker::new(
-                    columns,
-                    1,
-                    bookmarks,
-                    cwdir,
-                    move |_cx, _location, _action| {
-                        // jump_to_location(cx.editor, location, offset_encoding, action)
-                    },
-                );
-                // .with_preview(move |_editor, location| location_to_file_location(location));
+                let picker =
+                    Picker::new(columns, 1, bookmarks, cwdir, move |cx, bookmark, action| {
+                        let (view, doc) = current!(cx.editor);
+                        push_jump(view, doc);
+
+                        let path = Path::new(&bookmark.path);
+                        let range = Range::new(
+                            Position::new(bookmark.line as u32, 0),
+                            Position::new(bookmark.line as u32, 0),
+                        );
+                        jump_to_position(cx.editor, path, range, OffsetEncoding::Utf16, action)
+                    })
+                    .with_preview(move |_editor, bookmark| {
+                        let path = Path::new(&bookmark.path);
+                        let line = Some((bookmark.line, bookmark.line));
+                        Some((path.into(), line))
+                    });
                 compositor.push(Box::new(overlaid(picker)));
             },
         ));
