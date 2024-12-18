@@ -17,6 +17,7 @@ use std::path::Path;
 use futures_util::Future;
 mod handlers;
 
+use helix_core::BookmarkUri;
 use ignore::DirEntry;
 use url::Url;
 
@@ -86,4 +87,12 @@ fn open_external_url_callback(
             editor.set_error("Opening URL in external program failed")
         })))
     }
+}
+
+fn actualize_bookmarks(bookmarks: Vec<BookmarkUri>) -> Vec<BookmarkUri> {
+    bookmarks
+        .into_iter()
+        // remove bookmarks pointing to file that doesn't exist anymore
+        .filter(|bookmark| Path::new(&bookmark.path).exists())
+        .collect()
 }
