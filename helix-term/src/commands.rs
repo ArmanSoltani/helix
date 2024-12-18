@@ -587,6 +587,7 @@ impl MappableCommand {
         extend_to_word, "Extend to a two-character label",
         goto_next_tabstop, "goto next snippet placeholder",
         goto_prev_tabstop, "goto next snippet placeholder",
+        goto_bookmark, "Goto bookmark",
     );
 }
 
