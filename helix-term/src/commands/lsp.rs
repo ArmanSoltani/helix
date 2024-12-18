@@ -1033,54 +1033,49 @@ pub fn goto_bookmark(cx: &mut Context) {
     bookmark_file_path.push(".bookmarks");
     let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
 
-    if let Ok(bookmarks_data) = std::fs::read_to_string(bookmark_file_path) {
-        cx.callback.push(Box::new(
-            move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
-                let bookmarks: Vec<BookmarkUri> = bookmarks_data
-                    .lines()
-                    .map(|l| serde_json::from_str(l).unwrap())
-                    .collect();
+    let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
+    cx.callback.push(Box::new(
+        move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
+            let bookmarks: Vec<BookmarkUri> = bookmarks_data
+                .lines()
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
 
-                let columns = [
-                    ui::PickerColumn::new(
-                        "path",
-                        |item: &BookmarkUri, cwdir: &std::path::PathBuf| {
-                            let path = Path::new(&item.path)
-                                .strip_prefix(cwdir)
-                                .map(|p| p.to_string_lossy().to_string())
-                                .unwrap_or(item.path.clone());
+            let columns = [
+                ui::PickerColumn::new("path", |item: &BookmarkUri, cwdir: &std::path::PathBuf| {
+                    let path = Path::new(&item.path)
+                        .strip_prefix(cwdir)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or(item.path.clone());
 
-                            format!("{path}:{}", item.line + 1).into()
-                        },
-                    ),
-                    ui::PickerColumn::with_custom_truncation(
-                        "name",
-                        |item: &BookmarkUri, _cwdir: &std::path::PathBuf| item.name.clone().into(),
-                        ui::PickerColumnTruncated::End,
-                    ),
-                ];
+                    format!("{path}:{}", item.line + 1).into()
+                }),
+                ui::PickerColumn::with_custom_truncation(
+                    "name",
+                    |item: &BookmarkUri, _cwdir: &std::path::PathBuf| item.name.clone().into(),
+                    ui::PickerColumnTruncated::End,
+                ),
+            ];
 
-                let picker =
-                    Picker::new(columns, 1, bookmarks, cwdir, move |cx, bookmark, action| {
-                        let (view, doc) = current!(cx.editor);
-                        push_jump(view, doc);
+            let picker = Picker::new(columns, 1, bookmarks, cwdir, move |cx, bookmark, action| {
+                let (view, doc) = current!(cx.editor);
+                push_jump(view, doc);
 
-                        let path = Path::new(&bookmark.path);
-                        let range = Range::new(
-                            Position::new(bookmark.line as u32, 0),
-                            Position::new(bookmark.line as u32, 0),
-                        );
-                        jump_to_position(cx.editor, path, range, OffsetEncoding::Utf16, action)
-                    })
-                    .with_preview(move |_editor, bookmark| {
-                        let path = Path::new(&bookmark.path);
-                        let line = Some((bookmark.line, bookmark.line));
-                        Some((path.into(), line))
-                    });
-                compositor.push(Box::new(overlaid(picker)));
-            },
-        ));
-    }
+                let path = Path::new(&bookmark.path);
+                let range = Range::new(
+                    Position::new(bookmark.line as u32, 0),
+                    Position::new(bookmark.line as u32, 0),
+                );
+                jump_to_position(cx.editor, path, range, OffsetEncoding::Utf16, action)
+            })
+            .with_preview(move |_editor, bookmark| {
+                let path = Path::new(&bookmark.path);
+                let line = Some((bookmark.line, bookmark.line));
+                Some((path.into(), line))
+            });
+            compositor.push(Box::new(overlaid(picker)));
+        },
+    ));
 }
 
 pub fn signature_help(cx: &mut Context) {
