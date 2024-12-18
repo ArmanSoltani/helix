@@ -2415,6 +2415,25 @@ fn create_bookmark(
     Ok(())
 }
 
+fn clear_all_bookmarks(
+    _cx: &mut compositor::Context,
+    _args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let mut cwdir = helix_stdx::env::current_working_dir();
+    cwdir.push(".bookmarks");
+    let bookmark_file = cwdir.as_path().to_string_lossy().to_string();
+    log::info!("clear bookmarks file at {bookmark_file}");
+
+    std::fs::write(bookmark_file, "")?;
+
+    Ok(())
+}
+
 fn reset_diff_change(
     cx: &mut compositor::Context,
     args: &[Cow<str>],
@@ -3246,6 +3265,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         fun: create_bookmark,
         signature: CommandSignature::all(completers::none)
     },
+    TypableCommand {
+        name: "clear-all-bookmark",
+        aliases: &["bmca"],
+        doc: "Create all bookmarks",
+        fun: clear_all_bookmarks,
+        signature: CommandSignature::none()
+    }
 ];
 
 pub static TYPABLE_COMMAND_MAP: Lazy<HashMap<&'static str, &'static TypableCommand>> =
