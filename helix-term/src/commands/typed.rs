@@ -2334,6 +2334,61 @@ fn create_bookmark(
     Ok(())
 }
 
+fn clear_bookmark(
+    cx: &mut compositor::Context,
+    _args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let (view, doc) = current!(cx.editor);
+
+    let uri = doc.uri().unwrap();
+    let cur_path = uri.as_path().unwrap().to_string_lossy().to_string();
+    let current_line = doc.text().char_to_line(
+        doc.selection(view.id)
+            .primary()
+            .cursor(doc.text().slice(..)),
+    );
+
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = &bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    if let Ok(bookmarks_data) = std::fs::read_to_string(bookmark_file_path) {
+        let bookmarks: Vec<BookmarkUri> = bookmarks_data
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        let n = bookmarks.len();
+
+        let bookmarks_update: Vec<_> = bookmarks
+            .into_iter()
+            .filter(|bookmark| !(bookmark.path == cur_path && bookmark.line == current_line))
+            .collect();
+
+        if bookmarks_update.len() != n {
+            log::info!("Removing bookmark at the current position");
+        } else {
+            log::info!("No bookmark found at the current position");
+        }
+
+        let new_content = bookmarks_update
+            .into_iter()
+            .map(|bookmark| serde_json::to_string(&bookmark).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        std::fs::write(bookmark_file_path, new_content)?;
+
+        Ok(())
+    } else {
+        Ok(())
+    }
+}
+
 fn clear_all_bookmarks(
     _cx: &mut compositor::Context,
     _args: &[Cow<str>],
@@ -3573,6 +3628,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &["bmca"],
         doc: "Create all bookmarks",
         fun: clear_all_bookmarks,
+        signature: CommandSignature::none()
+    },
+    TypableCommand {
+        name: "clear-bookmark",
+        aliases: &["bmc"],
+        doc: "Create bookmarks",
+        fun: clear_bookmark,
         signature: CommandSignature::none()
     }
 ];
