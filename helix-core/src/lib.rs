@@ -72,4 +72,5 @@ pub use diagnostic::Diagnostic;
 pub use line_ending::{LineEnding, NATIVE_LINE_ENDING};
 pub use transaction::{Assoc, Change, ChangeSet, Deletion, Operation, Transaction};
 
+pub use uri::BookmarkUri;
 pub use uri::Uri;

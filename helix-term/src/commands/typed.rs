@@ -1,5 +1,6 @@
 use std::fmt::Write;
 use std::io::BufReader;
+use std::io::Write as _;
 use std::ops::{self, Deref};
 
 use crate::job::Job;
@@ -10,6 +11,7 @@ use helix_core::command_line::{Args, Flag, Signature, Token, TokenKind};
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
 use helix_core::line_ending;
+use helix_core::uri::BookmarkUri;
 use helix_stdx::path::home_dir;
 use helix_view::document::{read_to_string, DEFAULT_LANGUAGE_NAME};
 use helix_view::editor::{CloseError, ConfigEvent};
@@ -2350,7 +2352,7 @@ fn run_shell_command(
 
 fn create_bookmark(
     cx: &mut compositor::Context,
-    args: &[Cow<str>],
+    args: Args,
     event: PromptEvent,
 ) -> anyhow::Result<()> {
     if event != PromptEvent::Validate {
@@ -2367,11 +2369,26 @@ fn create_bookmark(
             .cursor(doc.text().slice(..)),
     );
 
-    log::info!(
-        "CREATING BOOKMARK \"{bookmark_name}\" AT: {}:{}",
-        uri.as_path().unwrap().to_string_lossy(),
-        current_line + 1
-    );
+    let bookmark_url = BookmarkUri {
+        name: bookmark_name,
+        path: uri.as_path().unwrap().to_string_lossy().to_string(),
+        line: current_line,
+    };
+    let serialized_bookmark = serde_json::to_string(&bookmark_url).unwrap();
+
+    let mut cwdir = helix_stdx::env::current_working_dir();
+    cwdir.push(".bookmarks");
+    let bookmark_file = cwdir.as_path().to_string_lossy().to_string();
+    log::info!("writing bookmark to {bookmark_file}");
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(bookmark_file)
+        .unwrap();
+    writeln!(file, "{serialized_bookmark}").unwrap();
+
+    log::info!("creating bookmark {serialized_bookmark}");
 
     Ok(())
 }
@@ -3585,7 +3602,11 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &["bm"],
         doc: "Create a bookmark at the current cursor location",
         fun: create_bookmark,
-        signature: CommandSignature::all(completers::none)
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
     },
 ];
 
