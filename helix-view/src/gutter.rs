@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use helix_core::syntax::LanguageServerFeature;
+use helix_core::{syntax::LanguageServerFeature, uri::actualize_bookmarks, BookmarkUri};
 
 use crate::{
     editor::GutterType,
@@ -270,6 +270,42 @@ pub fn breakpoints<'doc>(
     )
 }
 
+fn bookmarks<'doc>(
+    editor: &'doc Editor,
+    doc: &'doc Document,
+    _view: &View,
+    theme: &Theme,
+    _is_focused: bool,
+) -> GutterFn<'doc> {
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
+    let bookmarks: Vec<BookmarkUri> = bookmarks_data
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let bookmarks = actualize_bookmarks(bookmarks);
+
+    log::info!("reading bookmark file from disk");
+
+    Box::new(
+        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
+            if !first_visual_line {
+                return None;
+            }
+            let bookmark = bookmarks.iter().find(|bookmark| bookmark.line == line)?;
+
+            let style = Style::default();
+
+            let sym = "";
+            write!(out, "{}", sym).unwrap();
+            Some(style)
+        },
+    )
+}
+
 fn execution_pause_indicator<'doc>(
     editor: &'doc Editor,
     doc: &'doc Document,
@@ -313,6 +349,7 @@ pub fn diagnostics_or_breakpoints<'doc>(
     is_focused: bool,
 ) -> GutterFn<'doc> {
     let mut diagnostics = diagnostic(editor, doc, view, theme, is_focused);
+    let mut bookmarks = bookmarks(editor, doc, view, theme, is_focused);
     let mut breakpoints = breakpoints(editor, doc, view, theme, is_focused);
     let mut execution_pause_indicator = execution_pause_indicator(editor, doc, theme, is_focused);
 
@@ -320,6 +357,7 @@ pub fn diagnostics_or_breakpoints<'doc>(
         execution_pause_indicator(line, selected, first_visual_line, out)
             .or_else(|| breakpoints(line, selected, first_visual_line, out))
             .or_else(|| diagnostics(line, selected, first_visual_line, out))
+            .or_else(|| bookmarks(line, selected, first_visual_line, out))
     })
 }
 
