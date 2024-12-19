@@ -17,7 +17,6 @@ use std::path::Path;
 use futures_util::Future;
 mod handlers;
 
-use helix_core::BookmarkUri;
 use ignore::DirEntry;
 use url::Url;
 
