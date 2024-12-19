@@ -25,7 +25,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use std::{
     borrow::Cow,
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet},
     fs,
     io::{self, stdin},
@@ -47,7 +47,7 @@ use helix_core::{
     auto_pairs::AutoPairs,
     diagnostic::DiagnosticProvider,
     syntax::{self, AutoPairConfig, IndentationHeuristic, LanguageServerFeature, SoftWrap},
-    Change, LineEnding, Position, Range, Selection, Uri, NATIVE_LINE_ENDING,
+    BookmarkUri, Change, LineEnding, Position, Range, Selection, Uri, NATIVE_LINE_ENDING,
 };
 use helix_dap as dap;
 use helix_lsp::lsp;
@@ -1072,6 +1072,7 @@ pub struct Editor {
     pub debugger: Option<dap::Client>,
     pub debugger_events: SelectAll<UnboundedReceiverStream<dap::Payload>>,
     pub breakpoints: HashMap<PathBuf, Vec<Breakpoint>>,
+    pub bookmarks_cache: RefCell<Option<HashMap<PathBuf, Vec<BookmarkUri>>>>,
 
     pub syn_loader: Arc<ArcSwap<syntax::Loader>>,
     pub theme_loader: Arc<theme::Loader>,
@@ -1218,6 +1219,7 @@ impl Editor {
             debugger: None,
             debugger_events: SelectAll::new(),
             breakpoints: HashMap::new(),
+            bookmarks_cache: RefCell::new(None),
             syn_loader,
             theme_loader,
             last_theme: None,
