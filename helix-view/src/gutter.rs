@@ -286,7 +286,7 @@ fn bookmarks<'doc>(
             }
             let _ = bookmarks.iter().find(|bookmark| bookmark.line == line)?;
 
-            let style = Style::default();
+            let style = Style::default().fg(crate::theme::Color::Rgb(187, 187, 241));
 
             let sym = "";
             write!(out, "{}", sym).unwrap();
