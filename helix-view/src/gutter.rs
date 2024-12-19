@@ -1,11 +1,11 @@
 use std::fmt::Write;
 
-use helix_core::{syntax::LanguageServerFeature, uri::actualize_bookmarks, BookmarkUri};
+use helix_core::syntax::LanguageServerFeature;
 
 use crate::{
     editor::GutterType,
     graphics::{Style, UnderlineStyle},
-    Document, Editor, Theme, View,
+    read_bookmarks_cache, Document, Editor, Theme, View,
 };
 
 fn count_digits(n: usize) -> usize {
@@ -274,28 +274,17 @@ fn bookmarks<'doc>(
     editor: &'doc Editor,
     doc: &'doc Document,
     _view: &View,
-    theme: &Theme,
+    _theme: &Theme,
     _is_focused: bool,
 ) -> GutterFn<'doc> {
-    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
-    bookmark_file_path.push(".bookmarks");
-    let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
-
-    let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
-    let bookmarks: Vec<BookmarkUri> = bookmarks_data
-        .lines()
-        .map(|l| serde_json::from_str(l).unwrap())
-        .collect();
-    let bookmarks = actualize_bookmarks(bookmarks);
-
-    log::info!("reading bookmark file from disk");
+    let bookmarks = read_bookmarks_cache(editor, doc);
 
     Box::new(
         move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
             if !first_visual_line {
                 return None;
             }
-            let bookmark = bookmarks.iter().find(|bookmark| bookmark.line == line)?;
+            let _ = bookmarks.iter().find(|bookmark| bookmark.line == line)?;
 
             let style = Style::default();
 
