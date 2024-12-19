@@ -15,7 +15,7 @@ use super::{align_view, push_jump, Align, Context, Editor};
 
 use helix_core::{
     diagnostic::DiagnosticProvider, syntax::LanguageServerFeature,
-    text_annotations::InlineAnnotation, BookmarkUri, Selection, Uri,
+    text_annotations::InlineAnnotation, uri::actualize_bookmarks, BookmarkUri, Selection, Uri,
 };
 use helix_stdx::path;
 use helix_view::{
@@ -27,7 +27,6 @@ use helix_view::{
 };
 
 use crate::{
-    actualize_bookmarks,
     compositor::{self, Compositor},
     job::Callback,
     ui::{self, overlay::overlaid, FileLocation, Picker, Popup, PromptEvent},
