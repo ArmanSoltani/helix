@@ -115,6 +115,14 @@ pub struct BookmarkUri {
     pub line: usize,
 }
 
+pub fn actualize_bookmarks(bookmarks: Vec<BookmarkUri>) -> Vec<BookmarkUri> {
+    bookmarks
+        .into_iter()
+        // remove bookmarks pointing to file that doesn't exist anymore
+        .filter(|bookmark| Path::new(&bookmark.path).exists())
+        .collect()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

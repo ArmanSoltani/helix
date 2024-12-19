@@ -3,13 +3,13 @@ use std::io::BufReader;
 use std::io::Write as _;
 use std::ops::Deref;
 
-use crate::actualize_bookmarks;
 use crate::job::Job;
 
 use super::*;
 
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
+use helix_core::uri::actualize_bookmarks;
 use helix_core::uri::BookmarkUri;
 use helix_core::{line_ending, shellwords::Shellwords};
 use helix_stdx::path::home_dir;
