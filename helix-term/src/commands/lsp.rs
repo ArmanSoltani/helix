@@ -1052,6 +1052,7 @@ pub fn goto_bookmark(cx: &mut Context) {
         move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
             let bookmarks: Vec<BookmarkUri> = bookmarks_data
                 .lines()
+                .filter(|line| !line.is_empty())
                 .map(|l| serde_json::from_str(l).unwrap())
                 .collect();
             let bookmarks = actualize_bookmarks(bookmarks);

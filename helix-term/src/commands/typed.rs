@@ -2420,6 +2420,7 @@ fn clear_bookmark(
     if let Ok(bookmarks_data) = std::fs::read_to_string(bookmark_file_path) {
         let bookmarks: Vec<BookmarkUri> = bookmarks_data
             .lines()
+            .filter(|line| !line.is_empty())
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
         let bookmarks = actualize_bookmarks(bookmarks);
@@ -2442,7 +2443,7 @@ fn clear_bookmark(
             .collect::<Vec<_>>()
             .join("\n");
 
-        std::fs::write(bookmark_file_path, new_content)?;
+        std::fs::write(bookmark_file_path, format!("{new_content}\n"))?;
 
         Ok(())
     } else {
