@@ -3,7 +3,6 @@ use std::io::BufReader;
 use std::io::Write as _;
 use std::ops::{self, Deref};
 
-use crate::actualize_bookmarks;
 use crate::job::Job;
 
 use super::*;
@@ -12,6 +11,7 @@ use helix_core::command_line::{Args, Flag, Signature, Token, TokenKind};
 use helix_core::fuzzy::fuzzy_match;
 use helix_core::indent::MAX_INDENT;
 use helix_core::line_ending;
+use helix_core::uri::actualize_bookmarks;
 use helix_core::uri::BookmarkUri;
 use helix_stdx::path::home_dir;
 use helix_view::document::{read_to_string, DEFAULT_LANGUAGE_NAME};
@@ -2337,7 +2337,7 @@ fn create_bookmark(
 
 fn clear_bookmark(
     cx: &mut compositor::Context,
-    _args: &[Cow<str>],
+    _args: Args,
     event: PromptEvent,
 ) -> anyhow::Result<()> {
     if event != PromptEvent::Validate {
@@ -2393,7 +2393,7 @@ fn clear_bookmark(
 
 fn clear_all_bookmarks(
     _cx: &mut compositor::Context,
-    _args: &[Cow<str>],
+    _args: Args,
     event: PromptEvent,
 ) -> anyhow::Result<()> {
     if event != PromptEvent::Validate {
@@ -3630,14 +3630,22 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &["bmca"],
         doc: "Create all bookmarks",
         fun: clear_all_bookmarks,
-        signature: CommandSignature::none()
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
     },
     TypableCommand {
         name: "clear-bookmark",
         aliases: &["bmc"],
         doc: "Create bookmarks",
         fun: clear_bookmark,
-        signature: CommandSignature::none()
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, None),
+            ..Signature::DEFAULT
+        },
     }
 ];
 
