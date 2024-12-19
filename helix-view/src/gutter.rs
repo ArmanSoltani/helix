@@ -5,7 +5,7 @@ use helix_core::syntax::LanguageServerFeature;
 use crate::{
     editor::GutterType,
     graphics::{Style, UnderlineStyle},
-    read_bookmarks_cache, Document, Editor, Theme, View,
+    read_and_update_bookmarks_cache, Document, Editor, Theme, View,
 };
 
 fn count_digits(n: usize) -> usize {
@@ -286,7 +286,7 @@ fn bookmarks<'doc>(
     _theme: &Theme,
     _is_focused: bool,
 ) -> GutterFn<'doc> {
-    let bookmarks = read_bookmarks_cache(editor, doc);
+    let bookmarks = read_and_update_bookmarks_cache(&editor.bookmarks_cache, doc);
 
     Box::new(
         move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
