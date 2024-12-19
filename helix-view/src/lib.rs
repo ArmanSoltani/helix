@@ -19,7 +19,7 @@ pub mod theme;
 pub mod tree;
 pub mod view;
 
-use std::{collections::HashMap, num::NonZeroUsize, path::PathBuf};
+use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, path::PathBuf};
 
 // uses NonZeroUsize so Option<DocumentId> use a byte rather than two
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -79,12 +79,17 @@ use helix_core::{char_idx_at_visual_offset, uri::actualize_bookmarks, BookmarkUr
 pub use theme::Theme;
 pub use view::View;
 
-pub fn read_bookmarks_cache(editor: &Editor, doc: &Document) -> Vec<BookmarkUri> {
+type BookmarkCache = RefCell<Option<HashMap<PathBuf, Vec<BookmarkUri>>>>;
+
+pub fn read_and_update_bookmarks_cache(
+    bookmarks_cache: &BookmarkCache,
+    doc: &Document,
+) -> Vec<BookmarkUri> {
     let mut bookmark_file_path = helix_stdx::env::current_working_dir();
     bookmark_file_path.push(".bookmarks");
     let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
 
-    if editor.bookmarks_cache.borrow().is_none() {
+    if bookmarks_cache.borrow().is_none() {
         // read bookmarks from file and update the cache
         log::info!("reading bookmark file from disk");
 
@@ -94,23 +99,22 @@ pub fn read_bookmarks_cache(editor: &Editor, doc: &Document) -> Vec<BookmarkUri>
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
 
-        let mut bookmarks_cache: HashMap<PathBuf, Vec<BookmarkUri>> = HashMap::new();
+        let mut new_bookmarks_cache: HashMap<PathBuf, Vec<BookmarkUri>> = HashMap::new();
 
         for bookmark in bookmarks {
-            bookmarks_cache
+            new_bookmarks_cache
                 .entry(bookmark.path.clone().into())
                 .and_modify(|b| b.push(bookmark.clone()))
                 .or_insert(vec![bookmark]);
         }
 
-        *editor.bookmarks_cache.borrow_mut() = Some(bookmarks_cache);
+        *bookmarks_cache.borrow_mut() = Some(new_bookmarks_cache);
     }
 
     let bookmarks = doc
         .path()
         .and_then(|path| {
-            editor
-                .bookmarks_cache
+            bookmarks_cache
                 .borrow()
                 .as_ref()
                 .and_then(|cache| cache.get(path).cloned())
