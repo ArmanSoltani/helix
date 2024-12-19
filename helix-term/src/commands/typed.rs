@@ -2367,6 +2367,9 @@ fn create_bookmark(
         .unwrap();
     writeln!(file, "{serialized_bookmark}").unwrap();
 
+    // invalidate bookmark cache
+    *cx.editor.bookmarks_cache.borrow_mut() = None;
+
     log::info!("creating bookmark {serialized_bookmark}");
 
     Ok(())
@@ -2423,6 +2426,9 @@ fn clear_bookmark(
 
         std::fs::write(bookmark_file_path, format!("{new_content}\n"))?;
 
+        // invalidate bookmark cache
+        *cx.editor.bookmarks_cache.borrow_mut() = None;
+
         Ok(())
     } else {
         Ok(())
@@ -2430,7 +2436,7 @@ fn clear_bookmark(
 }
 
 fn clear_all_bookmarks(
-    _cx: &mut compositor::Context,
+    cx: &mut compositor::Context,
     _args: &[Cow<str>],
     event: PromptEvent,
 ) -> anyhow::Result<()> {
@@ -2444,6 +2450,9 @@ fn clear_all_bookmarks(
     log::info!("clear bookmarks file at {bookmark_file}");
 
     std::fs::write(bookmark_file, "")?;
+
+    // invalidate bookmark cache
+    *cx.editor.bookmarks_cache.borrow_mut() = None;
 
     Ok(())
 }
