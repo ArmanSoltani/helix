@@ -18,7 +18,7 @@ pub mod theme;
 pub mod tree;
 pub mod view;
 
-use std::num::NonZeroUsize;
+use std::{collections::HashMap, num::NonZeroUsize, path::PathBuf};
 
 // uses NonZeroUsize so Option<DocumentId> use a byte rather than two
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -74,6 +74,46 @@ pub fn align_view(doc: &mut Document, view: &View, align: Align) {
 
 pub use document::Document;
 pub use editor::Editor;
-use helix_core::char_idx_at_visual_offset;
+use helix_core::{char_idx_at_visual_offset, uri::actualize_bookmarks, BookmarkUri};
 pub use theme::Theme;
 pub use view::View;
+
+pub fn read_bookmarks_cache(editor: &Editor, doc: &Document) -> Vec<BookmarkUri> {
+    let mut bookmark_file_path = helix_stdx::env::current_working_dir();
+    bookmark_file_path.push(".bookmarks");
+    let bookmark_file_path = bookmark_file_path.as_path().to_string_lossy().to_string();
+
+    if editor.bookmarks_cache.borrow().is_none() {
+        // read bookmarks from file and update the cache
+        log::info!("reading bookmark file from disk");
+
+        let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
+        let bookmarks: Vec<BookmarkUri> = bookmarks_data
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+
+        let mut bookmarks_cache: HashMap<PathBuf, Vec<BookmarkUri>> = HashMap::new();
+
+        for bookmark in bookmarks {
+            bookmarks_cache
+                .entry(bookmark.path.clone().into())
+                .and_modify(|b| b.push(bookmark.clone()))
+                .or_insert(vec![bookmark]);
+        }
+
+        *editor.bookmarks_cache.borrow_mut() = Some(bookmarks_cache);
+    }
+
+    let bookmarks = doc
+        .path()
+        .and_then(|path| {
+            editor
+                .bookmarks_cache
+                .borrow()
+                .as_ref()
+                .and_then(|cache| cache.get(path).cloned())
+        })
+        .unwrap_or_default();
+    actualize_bookmarks(bookmarks)
+}

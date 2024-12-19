@@ -108,7 +108,7 @@ impl TryFrom<&url::Url> for Uri {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookmarkUri {
     pub name: String,
     pub path: String,
