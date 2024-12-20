@@ -10,7 +10,7 @@ use helix_view::annotations::diagnostics::{
 };
 
 use helix_view::theme::Style;
-use helix_view::{Document, Theme};
+use helix_view::Theme;
 
 use crate::ui::document::{LinePos, TextRenderer};
 use crate::ui::text_decorations::Decoration;
@@ -43,22 +43,22 @@ impl Styles {
     }
 }
 
-pub struct InlineDiagnostics<'a> {
-    state: InlineDiagnosticAccumulator<'a>,
+pub struct InlineDiagnostics {
+    state: InlineDiagnosticAccumulator,
     eol_diagnostics: DiagnosticFilter,
     styles: Styles,
 }
 
-impl<'a> InlineDiagnostics<'a> {
+impl InlineDiagnostics {
     pub fn new(
-        doc: &'a Document,
+        diagnostics: Vec<Diagnostic>,
         theme: &Theme,
         cursor: usize,
         config: InlineDiagnosticsConfig,
         eol_diagnostics: DiagnosticFilter,
     ) -> Self {
         InlineDiagnostics {
-            state: InlineDiagnosticAccumulator::new(cursor, doc, config),
+            state: InlineDiagnosticAccumulator::new(cursor, diagnostics, config),
             styles: Styles::new(theme),
             eol_diagnostics,
         }
@@ -168,38 +168,38 @@ impl Renderer<'_, '_> {
         }
     }
 
-    fn draw_multi_diagnostics(&mut self, stack: &mut Vec<(&Diagnostic, u16)>) {
-        let Some(&(last_diag, last_anchor)) = stack.last() else {
+    fn draw_multi_diagnostics(&mut self, stack: &mut Vec<(Diagnostic, u16)>) {
+        let Some((last_diag, last_anchor)) = stack.last().as_ref() else {
             return;
         };
         let start = self
             .config
             .max_diagnostic_start(self.renderer.viewport.width);
 
-        if last_anchor <= start {
+        if *last_anchor <= start {
             return;
         }
         let mut severity = last_diag.severity();
-        let mut last_anchor = last_anchor;
+        let mut last_anchor = *last_anchor;
         self.draw_decoration(BL_CORNER, severity, last_anchor);
         let mut stacked_diagnostics = 1;
-        for &(diag, anchor) in stack.iter().rev().skip(1) {
-            let sym = match anchor.cmp(&start) {
+        for diag in stack.iter().rev().skip(1) {
+            let sym = match diag.1.cmp(&start) {
                 Ordering::Less => break,
                 Ordering::Equal => STACK,
                 Ordering::Greater => MULTI,
             };
             stacked_diagnostics += 1;
-            severity = severity.max(diag.severity());
+            severity = severity.max(diag.0.severity());
             let old_severity = severity;
-            if anchor == last_anchor && severity == old_severity {
+            if diag.1 == last_anchor && severity == old_severity {
                 continue;
             }
-            for col in (anchor + 1)..last_anchor {
+            for col in (diag.1 + 1)..last_anchor {
                 self.draw_decoration(HOR_BAR, old_severity, col)
             }
-            self.draw_decoration(sym, severity, anchor);
-            last_anchor = anchor;
+            self.draw_decoration(sym, severity, diag.1);
+            last_anchor = diag.1;
         }
 
         // if no diagnostic anchor was found exactly at the start of the
@@ -225,7 +225,7 @@ impl Renderer<'_, '_> {
         stack.truncate(stack.len() - stacked_diagnostics.len());
     }
 
-    fn draw_diagnostics(&mut self, stack: &mut Vec<(&Diagnostic, u16)>) {
+    fn draw_diagnostics(&mut self, stack: &mut Vec<(Diagnostic, u16)>) {
         let mut stack = stack.drain(..).rev().peekable();
         let mut last_anchor = self.renderer.viewport.width;
         while let Some((diag, anchor)) = stack.next() {
@@ -234,16 +234,16 @@ impl Renderer<'_, '_> {
                     self.draw_decoration_at(VER_BAR, diag.severity(), anchor, row);
                 }
             }
-            let next_severity = stack.peek().and_then(|&(diag, next_anchor)| {
-                (next_anchor == anchor).then_some(diag.severity())
+            let next_severity = stack.peek().as_ref().and_then(|(diag, next_anchor)| {
+                (*next_anchor == anchor).then_some(diag.severity())
             });
-            self.draw_diagnostic(diag, anchor, next_severity);
+            self.draw_diagnostic(&diag, anchor, next_severity);
             last_anchor = anchor;
         }
     }
 }
 
-impl Decoration for InlineDiagnostics<'_> {
+impl Decoration for InlineDiagnostics {
     fn render_virt_lines(
         &mut self,
         renderer: &mut TextRenderer,
