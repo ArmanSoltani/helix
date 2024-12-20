@@ -4,8 +4,6 @@ use helix_core::text_annotations::LineAnnotation;
 use helix_core::{softwrapped_dimensions, Diagnostic, Position};
 use serde::{Deserialize, Serialize};
 
-use crate::Document;
-
 /// Describes the severity level of a [`Diagnostic`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub enum DiagnosticFilter {
@@ -121,20 +119,24 @@ impl Default for InlineDiagnosticsConfig {
     }
 }
 
-pub struct InlineDiagnosticAccumulator<'a> {
+pub struct InlineDiagnosticAccumulator {
     idx: usize,
-    doc: &'a Document,
-    pub stack: Vec<(&'a Diagnostic, u16)>,
+    diagnostics: Vec<Diagnostic>,
+    pub stack: Vec<(Diagnostic, u16)>,
     pub config: InlineDiagnosticsConfig,
     cursor: usize,
     cursor_line: bool,
 }
 
-impl<'a> InlineDiagnosticAccumulator<'a> {
-    pub fn new(cursor: usize, doc: &'a Document, config: InlineDiagnosticsConfig) -> Self {
+impl InlineDiagnosticAccumulator {
+    pub fn new(
+        cursor: usize,
+        diagnostics: Vec<Diagnostic>,
+        config: InlineDiagnosticsConfig,
+    ) -> Self {
         InlineDiagnosticAccumulator {
             idx: 0,
-            doc,
+            diagnostics,
             stack: Vec::new(),
             config,
             cursor,
@@ -149,7 +151,7 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
     }
 
     pub fn skip_concealed(&mut self, conceal_end_char_idx: usize) -> usize {
-        let diagnostics = &self.doc.diagnostics[self.idx..];
+        let diagnostics = &self.diagnostics[self.idx..];
         let idx = diagnostics.partition_point(|diag| diag.range.start < conceal_end_char_idx);
         self.idx += idx;
         self.next_anchor(conceal_end_char_idx)
@@ -157,7 +159,6 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
 
     pub fn next_anchor(&self, current_char_idx: usize) -> usize {
         let next_diag_start = self
-            .doc
             .diagnostics
             .get(self.idx)
             .map_or(usize::MAX, |diag| diag.range.start);
@@ -185,7 +186,6 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
         if grapheme.char_idx == self.cursor {
             self.cursor_line = true;
             if self
-                .doc
                 .diagnostics
                 .get(self.idx)
                 .map_or(true, |diag| diag.range.start != grapheme.char_idx)
@@ -201,11 +201,11 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
             return true;
         }
 
-        for diag in &self.doc.diagnostics[self.idx..] {
+        for diag in &self.diagnostics[self.idx..] {
             if diag.range.start != grapheme.char_idx {
                 break;
             }
-            self.stack.push((diag, anchor_col as u16));
+            self.stack.push((diag.clone(), anchor_col as u16));
             self.idx += 1;
         }
         false
@@ -218,7 +218,7 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
         horizontal_off: usize,
     ) -> usize {
         if self.process_anchor_impl(grapheme, width, horizontal_off) {
-            self.idx += self.doc.diagnostics[self.idx..]
+            self.idx += self.diagnostics[self.idx..]
                 .iter()
                 .take_while(|diag| diag.range.start == grapheme.char_idx)
                 .count();
@@ -262,30 +262,30 @@ impl<'a> InlineDiagnosticAccumulator<'a> {
     }
 }
 
-pub(crate) struct InlineDiagnostics<'a> {
-    state: InlineDiagnosticAccumulator<'a>,
+pub(crate) struct InlineDiagnostics {
+    state: InlineDiagnosticAccumulator,
     width: u16,
     horizontal_off: usize,
 }
 
-impl<'a> InlineDiagnostics<'a> {
+impl InlineDiagnostics {
     #[allow(clippy::new_ret_no_self)]
     pub(crate) fn new(
-        doc: &'a Document,
+        diagnostics: Vec<Diagnostic>,
         cursor: usize,
         width: u16,
         horizontal_off: usize,
         config: InlineDiagnosticsConfig,
-    ) -> Box<dyn LineAnnotation + 'a> {
+    ) -> Box<dyn LineAnnotation> {
         Box::new(InlineDiagnostics {
-            state: InlineDiagnosticAccumulator::new(cursor, doc, config),
+            state: InlineDiagnosticAccumulator::new(cursor, diagnostics, config),
             width,
             horizontal_off,
         })
     }
 }
 
-impl LineAnnotation for InlineDiagnostics<'_> {
+impl LineAnnotation for InlineDiagnostics {
     fn reset_pos(&mut self, char_idx: usize) -> usize {
         self.state.reset_pos(char_idx)
     }

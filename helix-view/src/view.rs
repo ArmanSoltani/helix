@@ -493,7 +493,7 @@ impl View {
                 .primary()
                 .cursor(doc.text().slice(..));
             text_annotations.add_line_annotation(InlineDiagnostics::new(
-                doc,
+                doc.diagnostics.clone(),
                 cursor,
                 width,
                 doc.view_offset(self.id).horizontal_offset,
