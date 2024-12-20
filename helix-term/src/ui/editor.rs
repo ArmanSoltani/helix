@@ -197,7 +197,7 @@ impl EditorView {
 
         if view.diagnostics_handler.active || !inline_diagnostic_config.hidden {
             decorations.add_decoration(InlineDiagnostics::new(
-                doc,
+                doc.diagnostics().to_vec(),
                 theme,
                 primary_cursor,
                 inline_diagnostic_config,
