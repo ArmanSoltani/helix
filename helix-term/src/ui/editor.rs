@@ -24,12 +24,13 @@ use helix_core::{
 };
 use helix_view::{
     annotations::diagnostics::DiagnosticFilter,
+    convert_bookmarks_to_fake_diagnostics,
     document::{Mode, SavePoint, SCRATCH_BUFFER_NAME},
     editor::{CompleteAction, CursorShapeConfig},
     graphics::{Color, CursorKind, Modifier, Rect, Style},
     input::{KeyEvent, MouseButton, MouseEvent, MouseEventKind},
     keyboard::{KeyCode, KeyModifiers},
-    Document, Editor, Theme, View,
+    read_and_update_document_bookmarks_cache, Document, Editor, Theme, View,
 };
 use std::{mem::take, num::NonZeroUsize, path::PathBuf, rc::Rc, sync::Arc};
 
@@ -202,6 +203,16 @@ impl EditorView {
         if view.diagnostics_handler.active || !inline_diagnostic_config.hidden {
             decorations.add_decoration(InlineDiagnostics::new(
                 doc.diagnostics().to_vec(),
+                theme,
+                primary_cursor,
+                inline_diagnostic_config.clone(),
+                config.end_of_line_diagnostics,
+            ));
+
+            let bookmarks = read_and_update_document_bookmarks_cache(doc);
+            let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+            decorations.add_decoration(InlineDiagnostics::new(
+                bookmark_diagnostics,
                 theme,
                 primary_cursor,
                 inline_diagnostic_config,
