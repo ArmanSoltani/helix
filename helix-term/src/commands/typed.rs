@@ -2413,6 +2413,7 @@ fn create_bookmark(
 
     // invalidate bookmark cache
     *cx.editor.bookmarks_cache.borrow_mut() = None;
+    *doc.bookmarks_cache.borrow_mut() = None;
 
     log::info!("creating bookmark {serialized_bookmark}");
 
@@ -2472,6 +2473,7 @@ fn clear_bookmark(
 
         // invalidate bookmark cache
         *cx.editor.bookmarks_cache.borrow_mut() = None;
+        *doc.bookmarks_cache.borrow_mut() = None;
 
         Ok(())
     } else {
@@ -2497,6 +2499,10 @@ fn clear_all_bookmarks(
 
     // invalidate bookmark cache
     *cx.editor.bookmarks_cache.borrow_mut() = None;
+    cx.editor
+        .documents
+        .values()
+        .for_each(|doc| *doc.bookmarks_cache.borrow_mut() = None);
 
     Ok(())
 }
