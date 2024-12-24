@@ -11,6 +11,7 @@ use helix_core::encoding::Encoding;
 use helix_core::snippets::{ActiveSnippet, SnippetRenderCtx};
 use helix_core::syntax::{Highlight, LanguageServerFeature};
 use helix_core::text_annotations::{InlineAnnotation, Overlay};
+use helix_core::BookmarkUri;
 use helix_event::TaskController;
 use helix_lsp::util::lsp_pos_to_pos;
 use helix_stdx::faccess::{copy_metadata, readonly};
@@ -22,7 +23,7 @@ use ::parking_lot::Mutex;
 use serde::de::{self, Deserialize, Deserializer};
 use serde::Serialize;
 use std::borrow::Cow;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::future::Future;
@@ -193,6 +194,8 @@ pub struct Document {
 
     pub(crate) diagnostics: Vec<Diagnostic>,
     pub(crate) language_servers: HashMap<LanguageServerName, Arc<Client>>,
+
+    pub bookmarks_cache: RefCell<Option<HashMap<usize, BookmarkUri>>>,
 
     diff_handle: Option<DiffHandle>,
     version_control_head: Option<Arc<ArcSwap<Box<str>>>>,
@@ -704,6 +707,7 @@ impl Document {
             changes,
             old_state,
             diagnostics: Vec::new(),
+            bookmarks_cache: RefCell::new(None),
             version: 0,
             history: Cell::new(History::default()),
             savepoints: Vec::new(),
