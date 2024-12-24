@@ -95,6 +95,7 @@ pub fn read_and_update_bookmarks_cache(
         let bookmarks_data = std::fs::read_to_string(bookmark_file_path).unwrap_or("".into());
         let bookmarks: Vec<BookmarkUri> = bookmarks_data
             .lines()
+            .filter(|line| !line.is_empty())
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
 
