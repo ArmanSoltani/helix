@@ -769,6 +769,7 @@ impl EditorView {
         let error = theme.get("error");
         let info = theme.get("info");
         let hint = theme.get("hint");
+        let bookmark = theme.get("bookmark");
 
         let mut lines = Vec::new();
         let background_style = theme.get("ui.background");
@@ -780,6 +781,7 @@ impl EditorView {
                     Some(Severity::Warning) | None => warning,
                     Some(Severity::Info) => info,
                     Some(Severity::Hint) => hint,
+                    Some(Severity::Bookmark) => bookmark,
                 });
             let text = Text::styled(&diagnostic.message, style);
             lines.extend(text.lines);

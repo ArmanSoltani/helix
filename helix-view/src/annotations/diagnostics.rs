@@ -41,6 +41,7 @@ impl Serialize for DiagnosticFilter {
             DiagnosticFilter::Enable(Severity::Info) => "info",
             DiagnosticFilter::Enable(Severity::Warning) => "warning",
             DiagnosticFilter::Enable(Severity::Error) => "error",
+            DiagnosticFilter::Enable(Severity::Bookmark) => "bookmark",
         };
         filter.serialize(serializer)
     }

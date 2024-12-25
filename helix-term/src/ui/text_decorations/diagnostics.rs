@@ -21,6 +21,7 @@ struct Styles {
     info: Style,
     warning: Style,
     error: Style,
+    bookmark: Style,
 }
 
 impl Styles {
@@ -30,6 +31,7 @@ impl Styles {
             info: theme.get("info"),
             warning: theme.get("warning"),
             error: theme.get("error"),
+            bookmark: theme.get("bookmark"),
         }
     }
 
@@ -39,6 +41,7 @@ impl Styles {
             Severity::Info => self.info,
             Severity::Warning => self.warning,
             Severity::Error => self.error,
+            Severity::Bookmark => self.bookmark,
         }
     }
 }
