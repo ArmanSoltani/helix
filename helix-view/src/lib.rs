@@ -201,5 +201,6 @@ pub fn convert_bookmarks_to_fake_diagnostics(
         diagnostics.push(diagnostic);
     }
 
+    diagnostics.sort_by_key(|d| d.range.start);
     diagnostics
 }
