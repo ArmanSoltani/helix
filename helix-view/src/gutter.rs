@@ -3,9 +3,10 @@ use std::fmt::Write;
 use helix_core::syntax::LanguageServerFeature;
 
 use crate::{
+    convert_bookmarks_to_fake_diagnostics,
     editor::GutterType,
     graphics::{Style, UnderlineStyle},
-    read_and_update_bookmarks_cache, Document, Editor, Theme, View,
+    read_and_update_document_bookmarks_cache, Document, Editor, Theme, View,
 };
 
 fn count_digits(n: usize) -> usize {
@@ -56,7 +57,13 @@ pub fn diagnostic<'doc>(
     let error = theme.get("error");
     let info = theme.get("info");
     let hint = theme.get("hint");
-    let diagnostics = &doc.diagnostics;
+    let bookmark = theme.get("bookmark");
+
+    let bookmarks = read_and_update_document_bookmarks_cache(doc);
+    let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+    let mut diagnostics = doc.diagnostics.clone();
+    diagnostics.extend(bookmark_diagnostics);
+    diagnostics.sort_by_key(|d| d.range.start);
 
     Box::new(
         move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
@@ -72,18 +79,31 @@ pub fn diagnostic<'doc>(
                         && d.provider.language_server_id().map_or(true, |id| {
                             doc.language_servers_with_feature(LanguageServerFeature::Diagnostics)
                                 .any(|ls| ls.id() == id)
+                                || d.severity == Some(Severity::Bookmark)
                         })
                 });
             diagnostics_on_line
                 .max_by_key(|d| d.severity)
-                .and_then(|d| {
-                    write!(out, "●").ok();
-                    match d.severity {
-                        Some(Severity::Error) => Some(error),
-                        Some(Severity::Warning) | None => Some(warning),
-                        Some(Severity::Info) => Some(info),
-                        Some(Severity::Hint) => Some(hint),
-                        Some(Severity::Bookmark) => None,
+                .map(|d| match d.severity {
+                    Some(Severity::Error) => {
+                        write!(out, "●").ok();
+                        error
+                    }
+                    Some(Severity::Warning) | None => {
+                        write!(out, "●").ok();
+                        warning
+                    }
+                    Some(Severity::Info) => {
+                        write!(out, "●").ok();
+                        info
+                    }
+                    Some(Severity::Hint) => {
+                        write!(out, "●").ok();
+                        hint
+                    }
+                    Some(Severity::Bookmark) => {
+                        write!(out, "").ok();
+                        bookmark
                     }
                 })
         },
@@ -274,31 +294,6 @@ pub fn breakpoints<'doc>(
     )
 }
 
-fn bookmarks<'doc>(
-    editor: &'doc Editor,
-    doc: &'doc Document,
-    _view: &View,
-    _theme: &Theme,
-    _is_focused: bool,
-) -> GutterFn<'doc> {
-    let bookmarks = read_and_update_bookmarks_cache(&editor.bookmarks_cache, doc);
-
-    Box::new(
-        move |line: usize, _selected: bool, first_visual_line: bool, out: &mut String| {
-            if !first_visual_line {
-                return None;
-            }
-            let _ = bookmarks.iter().find(|bookmark| bookmark.line == line)?;
-
-            let style = Style::default().fg(crate::theme::Color::Rgb(187, 187, 241));
-
-            let sym = "";
-            write!(out, "{}", sym).unwrap();
-            Some(style)
-        },
-    )
-}
-
 fn execution_pause_indicator<'doc>(
     editor: &'doc Editor,
     doc: &'doc Document,
@@ -342,7 +337,6 @@ pub fn diagnostics_or_breakpoints<'doc>(
     is_focused: bool,
 ) -> GutterFn<'doc> {
     let mut diagnostics = diagnostic(editor, doc, view, theme, is_focused);
-    let mut bookmarks = bookmarks(editor, doc, view, theme, is_focused);
     let mut breakpoints = breakpoints(editor, doc, view, theme, is_focused);
     let mut execution_pause_indicator = execution_pause_indicator(editor, doc, theme, is_focused);
 
@@ -350,7 +344,6 @@ pub fn diagnostics_or_breakpoints<'doc>(
         execution_pause_indicator(line, selected, first_visual_line, out)
             .or_else(|| breakpoints(line, selected, first_visual_line, out))
             .or_else(|| diagnostics(line, selected, first_visual_line, out))
-            .or_else(|| bookmarks(line, selected, first_visual_line, out))
     })
 }
 
