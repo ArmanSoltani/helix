@@ -102,7 +102,7 @@ pub fn diagnostic<'doc>(
                         hint
                     }
                     Some(Severity::Bookmark) => {
-                        write!(out, "").ok();
+                        write!(out, "●").ok();
                         bookmark
                     }
                 })
