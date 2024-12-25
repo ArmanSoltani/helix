@@ -511,18 +511,15 @@ impl View {
                 .selection(self.id)
                 .primary()
                 .cursor(doc.text().slice(..));
-            text_annotations.add_line_annotation(InlineDiagnostics::new(
-                doc.diagnostics.clone(),
-                cursor,
-                width,
-                doc.view_offset(self.id).horizontal_offset,
-                config.clone(),
-            ));
 
             let bookmarks = read_and_update_document_bookmarks_cache(doc);
             let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+            let mut diagnostics = doc.diagnostics.clone();
+            diagnostics.extend(bookmark_diagnostics);
+            diagnostics.sort_by_key(|d| d.range.start);
+
             text_annotations.add_line_annotation(InlineDiagnostics::new(
-                bookmark_diagnostics,
+                diagnostics,
                 cursor,
                 width,
                 doc.view_offset(self.id).horizontal_offset,
