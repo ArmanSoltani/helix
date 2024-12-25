@@ -2022,6 +2022,7 @@ impl Document {
             lsp::DiagnosticSeverity::WARNING => Some(Warning),
             lsp::DiagnosticSeverity::INFORMATION => Some(Info),
             lsp::DiagnosticSeverity::HINT => Some(Hint),
+            lsp::DiagnosticSeverity::BOOKMARK => Some(Bookmark),
             severity => {
                 log::error!("unrecognized diagnostic severity: {:?}", severity);
                 None
