@@ -201,21 +201,17 @@ impl EditorView {
         let inline_diagnostic_config = config.inline_diagnostics.prepare(width, enable_cursor_line);
 
         if view.diagnostics_handler.active || !inline_diagnostic_config.hidden {
+            let bookmarks = read_and_update_document_bookmarks_cache(doc);
+            let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
+            let mut diagnostics = doc.diagnostics().to_vec();
+            diagnostics.extend(bookmark_diagnostics);
+            diagnostics.sort_by_key(|d| d.range.start);
+
             decorations.add_decoration(InlineDiagnostics::new(
-                doc.diagnostics().to_vec(),
+                diagnostics,
                 theme,
                 primary_cursor,
                 inline_diagnostic_config.clone(),
-                config.end_of_line_diagnostics,
-            ));
-
-            let bookmarks = read_and_update_document_bookmarks_cache(doc);
-            let bookmark_diagnostics = convert_bookmarks_to_fake_diagnostics(doc, bookmarks);
-            decorations.add_decoration(InlineDiagnostics::new(
-                bookmark_diagnostics,
-                theme,
-                primary_cursor,
-                inline_diagnostic_config,
                 config.end_of_line_diagnostics,
             ));
         }
