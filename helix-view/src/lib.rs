@@ -75,7 +75,7 @@ pub fn align_view(doc: &mut Document, view: &View, align: Align) {
 pub use document::Document;
 pub use editor::Editor;
 use helix_core::{char_idx_at_visual_offset, uri::actualize_bookmarks, BookmarkUri, Diagnostic};
-use helix_lsp::LanguageServerId;
+use helix_lsp::{lsp::DiagnosticSeverity, LanguageServerId};
 pub use theme::Theme;
 pub use view::View;
 
@@ -174,7 +174,7 @@ pub fn convert_bookmarks_to_fake_diagnostics(
     let mut diagnostics = vec![];
 
     for bookmark in bookmarks {
-        let fake_lsp_diagnostics = helix_lsp::lsp::Diagnostic::new_simple(
+        let mut fake_lsp_diagnostics = helix_lsp::lsp::Diagnostic::new_simple(
             helix_lsp::lsp::Range::new(
                 helix_lsp::Position {
                     line: bookmark.line as u32,
@@ -187,6 +187,8 @@ pub fn convert_bookmarks_to_fake_diagnostics(
             ),
             bookmark.name,
         );
+        fake_lsp_diagnostics.severity = Some(DiagnosticSeverity::BOOKMARK);
+
         let diagnostic = Document::lsp_diagnostic_to_diagnostic(
             doc.text(),
             None,
