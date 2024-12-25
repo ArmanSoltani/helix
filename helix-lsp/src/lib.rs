@@ -86,6 +86,7 @@ pub mod util {
             Info => lsp::DiagnosticSeverity::INFORMATION,
             Warning => lsp::DiagnosticSeverity::WARNING,
             Error => lsp::DiagnosticSeverity::ERROR,
+            Bookmark => lsp::DiagnosticSeverity::BOOKMARK,
         });
 
         let code = match diag.code.clone() {

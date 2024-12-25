@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum Severity {
     Hint,
     Info,
+    Bookmark,
     Warning,
     Error,
 }
