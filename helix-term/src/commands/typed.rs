@@ -2622,6 +2622,77 @@ fn reset_diff_change(
     Ok(())
 }
 
+fn display_hunk(
+    cx: &mut compositor::Context,
+    args: &[Cow<str>],
+    event: PromptEvent,
+) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+    ensure!(args.is_empty(), ":display-hunk takes no arguments");
+
+    let editor = &mut cx.editor;
+    let (view, doc) = current!(editor);
+
+    let Some(handle) = doc.diff_handle() else {
+        bail!("Diff is not available in the current buffer")
+    };
+
+    let text = doc.text().slice(..);
+    let diff = handle.load();
+    let diff_base = diff.diff_base();
+
+    let primary_selection_line_range = doc.selection(view.id).primary().line_range(text);
+    let hunks: Vec<_> = diff
+        .hunks_intersecting_line_ranges([primary_selection_line_range].into_iter())
+        .collect();
+
+    let mut res = String::new();
+    let mut hunk_id = 0;
+    let mut idx = primary_selection_line_range.0;
+
+    while idx <= primary_selection_line_range.1 {
+        if hunk_id < hunks.len()
+            && idx >= hunks[hunk_id].after.start as usize
+            && (idx < hunks[hunk_id].after.end as usize)
+        {
+            // display the hunk
+            let hunk = hunks[hunk_id];
+            for j in hunk.before.start..hunk.before.end {
+                res += "-";
+                res += &diff_base.line(j as usize).to_string();
+            }
+            for j in hunk.after.start..hunk.after.end {
+                res += "+";
+                res += &text.line(j as usize).to_string();
+            }
+
+            hunk_id += 1;
+            idx = hunk.after.end as usize;
+        } else {
+            res += " ";
+            res += &text.line(idx).to_string();
+            idx += 1;
+        }
+    }
+
+    let callback = async move {
+        let call: job::Callback = Callback::EditorCompositor(Box::new(
+            move |editor: &mut Editor, compositor: &mut Compositor| {
+                let res = format!("```diff\n{res}```");
+                let contents = ui::Markdown::new(res, editor.syn_loader.clone());
+                let popup = Popup::new("hover", contents).auto_close(true);
+                compositor.replace_or_push("hover", popup);
+            },
+        ));
+        Ok(call)
+    };
+
+    cx.jobs.callback(callback);
+    Ok(())
+}
+
 fn clear_register(
     cx: &mut compositor::Context,
     args: &[Cow<str>],
@@ -3356,6 +3427,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &["diffget", "diffg"],
         doc: "Reset the diff change at the cursor position.",
         fun: reset_diff_change,
+        signature: CommandSignature::none(),
+    },
+    TypableCommand {
+        name: "display-hunk",
+        aliases: &["dh"],
+        doc: "Display the diff change at the cursor position.",
+        fun: display_hunk,
         signature: CommandSignature::none(),
     },
     TypableCommand {
