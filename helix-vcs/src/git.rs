@@ -83,6 +83,69 @@ pub fn for_each_changed_file(cwd: &Path, f: impl Fn(Result<FileChange>) -> bool)
     status(&open_repo(cwd)?.to_thread_local(), f)
 }
 
+#[derive(Debug)]
+pub enum HunkModificationType {
+    Addition,
+    Deletion,
+    Modification,
+}
+
+#[derive(Debug)]
+pub struct Hunk {
+    pub path: String,
+    pub modification_type: HunkModificationType,
+    pub new_start: usize,
+    pub new_size: usize,
+}
+
+impl Hunk {
+    fn new(path: String, hunk_info: git2::DiffHunk) -> Self {
+        let modification_type = match (hunk_info.old_lines(), hunk_info.new_lines()) {
+            (0, _) => HunkModificationType::Addition,
+            (_, 0) => HunkModificationType::Deletion,
+            _ => HunkModificationType::Modification,
+        };
+
+        Self {
+            path,
+            modification_type,
+            new_start: hunk_info.new_start() as usize,
+            new_size: hunk_info.new_lines() as usize,
+        }
+    }
+}
+
+pub fn git_diff_workdir(cwd: &Path) -> Result<Vec<Hunk>> {
+    let repo = git2::Repository::discover(cwd)?;
+    let head_tree = repo.head()?.peel_to_commit()?.tree()?;
+
+    let mut diff_options = git2::DiffOptions::new();
+    diff_options.context_lines(0);
+    let diff = repo.diff_tree_to_workdir(Some(&head_tree), Some(&mut diff_options))?;
+
+    let mut hunks = vec![];
+
+    diff.foreach(
+        &mut |_, _| true,
+        None,
+        Some(&mut |delta_info, hunk_info| {
+            let path = delta_info
+                .new_file()
+                .path()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            let hunk = Hunk::new(path, hunk_info);
+            hunks.push(hunk);
+
+            true
+        }),
+        None,
+    )?;
+
+    Ok(hunks)
+}
+
 fn open_repo(path: &Path) -> Result<ThreadSafeRepository> {
     // custom open options
     let mut git_open_opts_map = gix::sec::trust::Mapping::<gix::open::Options>::default();
