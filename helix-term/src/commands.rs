@@ -68,8 +68,9 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fmt,
+    fs::File,
     future::Future,
-    io::Read,
+    io::{BufRead, BufReader, Read},
     num::NonZeroUsize,
 };
 
@@ -401,6 +402,7 @@ impl MappableCommand {
         jumplist_picker, "Open jumplist picker",
         symbol_picker, "Open symbol picker",
         changed_file_picker, "Open changed file picker",
+        changed_hunk_picker, "Open changed hunk picker",
         select_references_to_symbol_under_cursor, "Select symbol references",
         workspace_symbol_picker, "Open workspace symbol picker",
         diagnostics_picker, "Open diagnostic picker",
@@ -3301,6 +3303,111 @@ fn changed_file_picker(cx: &mut Context) {
             }
         });
     cx.push_layer(Box::new(overlaid(picker)));
+}
+
+pub fn changed_hunk_picker(cx: &mut Context) {
+    pub struct HunkChangeData {
+        style_modified: Style,
+        style_deleted: Style,
+        style_added: Style,
+    }
+    let hunk_change_data = HunkChangeData {
+        style_modified: cx.editor.theme.get("diff.delta"),
+        style_deleted: cx.editor.theme.get("diff.minus"),
+        style_added: cx.editor.theme.get("diff.plus"),
+    };
+
+    cx.callback.push(Box::new(
+        move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
+            let columns = [
+                PickerColumn::new(
+                    "change",
+                    |hunk: &helix_vcs::git::Hunk, hunk_change_data: &HunkChangeData| {
+                        match hunk.modification_type {
+                            helix_vcs::git::HunkModificationType::Addition => {
+                                Span::styled("+ added", hunk_change_data.style_added)
+                            }
+                            helix_vcs::git::HunkModificationType::Deletion => {
+                                Span::styled("- deleted", hunk_change_data.style_deleted)
+                            }
+                            helix_vcs::git::HunkModificationType::Modification => {
+                                Span::styled("~ modified", hunk_change_data.style_modified)
+                            }
+                        }
+                        .into()
+                    },
+                ),
+                PickerColumn::new(
+                    "path",
+                    |hunk: &helix_vcs::git::Hunk, _hunk_change_data: &HunkChangeData| {
+                        match hunk.modification_type {
+                            helix_vcs::git::HunkModificationType::Addition => {
+                                format!("{}:{}", hunk.path, hunk.new_start)
+                            }
+                            helix_vcs::git::HunkModificationType::Deletion => {
+                                format!("{}:{}", hunk.path, hunk.new_start)
+                            }
+                            helix_vcs::git::HunkModificationType::Modification => {
+                                format!("{}:{}", hunk.path, hunk.new_start)
+                            }
+                        }
+                        .into()
+                    },
+                ),
+                ui::PickerColumn::with_custom_truncation(
+                    "line",
+                    |hunk: &helix_vcs::git::Hunk, _: &HunkChangeData| {
+                        if let Ok(file) = File::open(Path::new(&hunk.path)) {
+                            let reader = BufReader::new(file);
+                            let line = reader.lines().nth(hunk.new_start - 1);
+
+                            if let Some(Ok(line)) = line {
+                                line.trim().to_string().into()
+                            } else {
+                                "".into()
+                            }
+                        } else {
+                            "CANNOT READ FILE".into()
+                        }
+                    },
+                    ui::PickerColumnTruncated::End,
+                ),
+            ];
+
+            let hunks =
+                helix_vcs::git::git_diff_workdir(helix_stdx::env::current_working_dir().as_path())
+                    .unwrap();
+            let picker = Picker::new(
+                columns,
+                1,
+                hunks,
+                hunk_change_data,
+                move |cx, hunk, action| {
+                    let (view, doc) = current!(cx.editor);
+                    push_jump(view, doc);
+
+                    let path = Path::new(&hunk.path);
+                    let range = helix_lsp::lsp::Range::new(
+                        helix_lsp::lsp::Position::new(hunk.new_start as u32 - 1, 0),
+                        helix_lsp::lsp::Position::new(hunk.new_start as u32 - 1, 0),
+                    );
+                    lsp::jump_to_position(
+                        cx.editor,
+                        path,
+                        range,
+                        helix_lsp::OffsetEncoding::Utf16,
+                        action,
+                    )
+                },
+            )
+            .with_preview(move |_editor, hunk| {
+                let path = Path::new(&hunk.path);
+                let line = Some((hunk.new_start - 1, hunk.new_start - 1));
+                Some((path.into(), line))
+            });
+            compositor.push(Box::new(overlaid(picker)));
+        },
+    ));
 }
 
 pub fn command_palette(cx: &mut Context) {
