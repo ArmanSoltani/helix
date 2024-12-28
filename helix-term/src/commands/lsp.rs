@@ -135,7 +135,7 @@ fn jump_to_location(editor: &mut Editor, location: &Location, action: Action) {
     );
 }
 
-fn jump_to_position(
+pub fn jump_to_position(
     editor: &mut Editor,
     path: &Path,
     range: lsp::Range,
