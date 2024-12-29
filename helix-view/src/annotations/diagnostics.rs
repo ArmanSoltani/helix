@@ -51,6 +51,7 @@ impl Serialize for DiagnosticFilter {
 #[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct InlineDiagnosticsConfig {
     pub hidden: bool,
+    pub display_underlines: bool,
     pub cursor_line: DiagnosticFilter,
     pub other_lines: DiagnosticFilter,
     pub min_diagnostic_width: u16,
@@ -111,6 +112,7 @@ impl Default for InlineDiagnosticsConfig {
         InlineDiagnosticsConfig {
             cursor_line: DiagnosticFilter::Enable(Severity::Warning),
             hidden: true,
+            display_underlines: true,
             other_lines: DiagnosticFilter::Disable,
             min_diagnostic_width: 40,
             prefix_len: 1,
