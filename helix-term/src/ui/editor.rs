@@ -138,13 +138,15 @@ impl EditorView {
                 Box::new(syntax::merge(overlay_highlights, overlay_syntax_highlights));
         }
 
-        for diagnostic in Self::doc_diagnostics_highlights(doc, theme) {
-            // Most of the `diagnostic` Vecs are empty most of the time. Skipping
-            // a merge for any empty Vec saves a significant amount of work.
-            if diagnostic.is_empty() {
-                continue;
+        if config.inline_diagnostics.display_underlines {
+            for diagnostic in Self::doc_diagnostics_highlights(doc, theme) {
+                // Most of the `diagnostic` Vecs are empty most of the time. Skipping
+                // a merge for any empty Vec saves a significant amount of work.
+                if diagnostic.is_empty() {
+                    continue;
+                }
+                overlay_highlights = Box::new(syntax::merge(overlay_highlights, diagnostic));
             }
-            overlay_highlights = Box::new(syntax::merge(overlay_highlights, diagnostic));
         }
 
         if is_focused {
