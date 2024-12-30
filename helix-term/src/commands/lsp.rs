@@ -914,6 +914,29 @@ fn goto_impl(
     }
 }
 
+fn deduplicate_locations(locations: Vec<Location>) -> Vec<Location> {
+    let mut deduplicated = Vec::with_capacity(locations.len());
+    let mut seen: HashSet<(String, u32)> = HashSet::new();
+
+    for location in locations {
+        if let Some(path) = location
+            .uri
+            .as_path()
+            .map(|p| p.to_string_lossy().to_string())
+        {
+            let key = (path, location.range.start.line);
+            if !seen.contains(&key) {
+                seen.insert(key);
+                deduplicated.push(location);
+            }
+        } else {
+            deduplicated.push(location);
+        }
+    }
+
+    deduplicated
+}
+
 fn to_locations(definitions: Option<lsp::GotoDefinitionResponse>) -> Vec<Location> {
     match definitions {
         Some(lsp::GotoDefinitionResponse::Scalar(location)) => {
@@ -950,6 +973,7 @@ where
         future,
         move |editor, compositor, response: Option<lsp::GotoDefinitionResponse>| {
             let items = to_locations(response);
+            let items = deduplicate_locations(items);
             if items.is_empty() {
                 editor.set_error("No definition found.");
             } else {
