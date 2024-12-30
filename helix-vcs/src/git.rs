@@ -96,6 +96,7 @@ pub struct Hunk {
     pub modification_type: HunkModificationType,
     pub new_start: usize,
     pub new_size: usize,
+    pub size: usize,
 }
 
 impl Hunk {
@@ -106,11 +107,18 @@ impl Hunk {
             _ => HunkModificationType::Modification,
         };
 
+        let size = match modification_type {
+            HunkModificationType::Addition => hunk_info.new_lines(),
+            HunkModificationType::Deletion => hunk_info.old_lines(),
+            HunkModificationType::Modification => hunk_info.new_lines(),
+        };
+
         Self {
             path,
             modification_type,
             new_start: hunk_info.new_start() as usize,
             new_size: hunk_info.new_lines() as usize,
+            size: size as usize,
         }
     }
 }
