@@ -3324,15 +3324,18 @@ pub fn changed_hunk_picker(cx: &mut Context) {
                     "change",
                     |hunk: &helix_vcs::git::Hunk, hunk_change_data: &HunkChangeData| {
                         match hunk.modification_type {
-                            helix_vcs::git::HunkModificationType::Addition => {
-                                Span::styled("+ added", hunk_change_data.style_added)
-                            }
-                            helix_vcs::git::HunkModificationType::Deletion => {
-                                Span::styled("- deleted", hunk_change_data.style_deleted)
-                            }
-                            helix_vcs::git::HunkModificationType::Modification => {
-                                Span::styled("~ modified", hunk_change_data.style_modified)
-                            }
+                            helix_vcs::git::HunkModificationType::Addition => Span::styled(
+                                format!("+{} added", hunk.size),
+                                hunk_change_data.style_added,
+                            ),
+                            helix_vcs::git::HunkModificationType::Deletion => Span::styled(
+                                format!("-{} deleted", hunk.size),
+                                hunk_change_data.style_deleted,
+                            ),
+                            helix_vcs::git::HunkModificationType::Modification => Span::styled(
+                                format!("~{} modified", hunk.size),
+                                hunk_change_data.style_modified,
+                            ),
                         }
                         .into()
                     },
