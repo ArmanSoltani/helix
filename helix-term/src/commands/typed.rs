@@ -2655,7 +2655,7 @@ fn display_hunk(
     while idx <= primary_selection_line_range.1 {
         if hunk_id < hunks.len()
             && idx >= hunks[hunk_id].after.start as usize
-            && (idx < hunks[hunk_id].after.end as usize)
+            && (idx <= hunks[hunk_id].after.end as usize)
         {
             // display the hunk
             let hunk = hunks[hunk_id];
