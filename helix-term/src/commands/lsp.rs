@@ -914,6 +914,29 @@ fn goto_impl(editor: &mut Editor, compositor: &mut Compositor, locations: Vec<Lo
     }
 }
 
+fn deduplicate_locations(locations: Vec<Location>) -> Vec<Location> {
+    let mut deduplicated = Vec::with_capacity(locations.len());
+    let mut seen: HashSet<(String, u32)> = HashSet::new();
+
+    for location in locations {
+        if let Some(path) = location
+            .uri
+            .as_path()
+            .map(|p| p.to_string_lossy().to_string())
+        {
+            let key = (path, location.range.start.line);
+            if !seen.contains(&key) {
+                seen.insert(key);
+                deduplicated.push(location);
+            }
+        } else {
+            deduplicated.push(location);
+        }
+    }
+
+    deduplicated
+}
+
 fn goto_single_impl<P, F>(cx: &mut Context, feature: LanguageServerFeature, request_provider: P)
 where
     P: Fn(&Client, lsp::Position, lsp::TextDocumentIdentifier) -> Option<F>,
@@ -966,6 +989,8 @@ where
                 None => (),
             }
         }
+
+        locations = deduplicate_locations(locations);
         let call = move |editor: &mut Editor, compositor: &mut Compositor| {
             if locations.is_empty() {
                 editor.set_error("No definition found.");
