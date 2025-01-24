@@ -234,6 +234,7 @@ pub fn default() -> HashMap<Mode, KeyTrie> {
             "g" => { "Change pickers"
                 "f" => changed_file_picker,
                 "h" => changed_hunk_picker,
+                "c" => goto_commands,
             },
             "a" => code_action,
             "'" => last_picker,
