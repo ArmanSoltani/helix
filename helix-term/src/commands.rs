@@ -616,6 +616,7 @@ impl MappableCommand {
         rotate_selections_first, "Make the first selection your primary one",
         rotate_selections_last, "Make the last selection your primary one",
         goto_bookmark, "Goto bookmark",
+        goto_commands, "Goto commands",
     );
 }
 
