@@ -2539,7 +2539,7 @@ fn reset_diff_change(
 
 fn display_hunk(
     cx: &mut compositor::Context,
-    args: &[Cow<str>],
+    args: Args,
     event: PromptEvent,
 ) -> anyhow::Result<()> {
     if event != PromptEvent::Validate {
@@ -3688,7 +3688,11 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         aliases: &["dh"],
         doc: "Display the diff change at the cursor position.",
         fun: display_hunk,
-        signature: CommandSignature::none(),
+        completer: CommandCompleter::none(),
+        signature: Signature {
+            positionals: (0, Some(0)),
+            ..Signature::DEFAULT
+        },
     },
     TypableCommand {
         name: "clear-register",

@@ -15,7 +15,8 @@ use super::{align_view, push_jump, Align, Context, Editor};
 
 use helix_core::{
     diagnostic::DiagnosticProvider, syntax::LanguageServerFeature,
-    text_annotations::InlineAnnotation, uri::actualize_bookmarks, BookmarkUri, Selection, Uri,
+    text_annotations::InlineAnnotation, uri::actualize_bookmarks, uri::ExternalCommand,
+    BookmarkUri, Selection, Uri,
 };
 use helix_stdx::path;
 use helix_view::{
@@ -27,6 +28,7 @@ use helix_view::{
 };
 
 use crate::{
+    commands::shell_impl,
     compositor::{self, Compositor},
     job::Callback,
     ui::{self, overlay::overlaid, FileLocation, Picker, Popup, PromptEvent},
@@ -1113,6 +1115,44 @@ pub fn goto_bookmark(cx: &mut Context) {
                 let path = Path::new(&bookmark.path);
                 let line = Some((bookmark.line, bookmark.line));
                 Some((path.into(), line))
+            });
+            compositor.push(Box::new(overlaid(picker)));
+        },
+    ));
+}
+
+pub fn goto_commands(cx: &mut Context) {
+    let cwdir = helix_stdx::env::current_working_dir();
+
+    let mut command_file_path = helix_stdx::env::current_working_dir();
+    command_file_path.push(".commands");
+    let command_file_path = command_file_path.as_path().to_string_lossy().to_string();
+
+    let commands_data = std::fs::read_to_string(command_file_path).unwrap_or("".into());
+    log::info!("Read command data: {commands_data}");
+    cx.callback.push(Box::new(
+        move |compositor: &mut Compositor, _cx: &mut compositor::Context| {
+            let commands: Vec<ExternalCommand> = commands_data
+                .lines()
+                .filter(|line| !line.is_empty())
+                .map(|l| serde_json::from_str(l).unwrap())
+                .collect();
+
+            let columns = [
+                ui::PickerColumn::new(
+                    "desc",
+                    |item: &ExternalCommand, _cwdir: &std::path::PathBuf| item.desc.clone().into(),
+                ),
+                ui::PickerColumn::with_custom_truncation(
+                    "cmd",
+                    |item: &ExternalCommand, _cwdir: &std::path::PathBuf| item.cmd.clone().into(),
+                    ui::PickerColumnTruncated::End,
+                ),
+            ];
+
+            let picker = Picker::new(columns, 0, commands, cwdir, move |cx, command, _action| {
+                let shell = cx.editor.config().shell.clone();
+                let _ = shell_impl(&shell, &command.cmd, None).unwrap();
             });
             compositor.push(Box::new(overlaid(picker)));
         },

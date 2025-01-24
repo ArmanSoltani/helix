@@ -115,6 +115,12 @@ pub struct BookmarkUri {
     pub line: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalCommand {
+    pub desc: String,
+    pub cmd: String,
+}
+
 pub fn actualize_bookmarks(bookmarks: Vec<BookmarkUri>) -> Vec<BookmarkUri> {
     bookmarks
         .into_iter()
