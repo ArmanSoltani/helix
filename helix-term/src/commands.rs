@@ -594,6 +594,7 @@ impl MappableCommand {
         goto_next_tabstop, "goto next snippet placeholder",
         goto_prev_tabstop, "goto next snippet placeholder",
         goto_bookmark, "Goto bookmark",
+        goto_commands, "Goto commands",
     );
 }
 
