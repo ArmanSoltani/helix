@@ -1169,7 +1169,28 @@ pub fn goto_commands(cx: &mut Context) {
 
             let picker = Picker::new(columns, 0, commands, cwdir, move |cx, command, _action| {
                 let shell = cx.editor.config().shell.clone();
-                let _ = shell_impl(&shell, &command.cmd, None).unwrap();
+
+                // templating command
+                let (view, doc) = current!(cx.editor);
+                let current_line = doc.text().char_to_line(
+                    doc.selection(view.id)
+                        .primary()
+                        .cursor(doc.text().slice(..)),
+                );
+                let path = doc
+                    .uri()
+                    .unwrap()
+                    .as_path()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                let cmd = command
+                    .cmd
+                    .replace("%f", &path)
+                    .replace("%l", &format!("{current_line}"));
+
+                // get current file and line and replace them in cmd
+                let _ = shell_impl(&shell, &cmd, None).unwrap();
             });
             compositor.push(Box::new(overlaid(picker)));
         },
