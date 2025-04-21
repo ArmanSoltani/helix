@@ -17,6 +17,8 @@ use helix_view::{
     Align, Editor,
 };
 use serde_json::json;
+use std::time::Duration;
+use tokio::time::interval;
 use tui::backend::Backend;
 
 use crate::{
@@ -26,7 +28,7 @@ use crate::{
     handlers,
     job::Jobs,
     keymap::Keymaps,
-    ui::{self, overlay::overlaid},
+    ui::{self, overlay::overlaid, spinner::any_spinner_active},
 };
 
 use log::{debug, error, info, warn};
@@ -93,6 +95,18 @@ fn setup_integration_logging() {
 }
 
 impl Application {
+    async fn animation_timer() {
+        let mut interval = interval(Duration::from_millis(80));
+
+        loop {
+            interval.tick().await;
+
+            if any_spinner_active() {
+                helix_event::request_redraw();
+            }
+        }
+    }
+
     pub fn new(args: Args, config: Config, lang_loader: syntax::Loader) -> Result<Self, Error> {
         #[cfg(feature = "integration")]
         setup_integration_logging();
@@ -243,6 +257,8 @@ impl Application {
             jobs: Jobs::new(),
             lsp_progress: LspProgressMap::new(),
         };
+
+        tokio::spawn(Self::animation_timer());
 
         Ok(app)
     }

@@ -19,7 +19,7 @@ pub struct RenderContext<'a> {
     pub doc: &'a Document,
     pub view: &'a View,
     pub focused: bool,
-    pub spinners: &'a ProgressSpinners,
+    pub spinners: &'a mut ProgressSpinners,
     pub parts: RenderBuffer<'a>,
 }
 
@@ -29,7 +29,7 @@ impl<'a> RenderContext<'a> {
         doc: &'a Document,
         view: &'a View,
         focused: bool,
-        spinners: &'a ProgressSpinners,
+        spinners: &'a mut ProgressSpinners,
     ) -> Self {
         RenderContext {
             editor,
@@ -206,20 +206,18 @@ where
     F: Fn(&mut RenderContext, String, Option<Style>) + Copy,
 {
     let language_server = context.doc.language_servers().next();
-    write(
-        context,
-        language_server
-            .and_then(|srv| {
-                context
-                    .spinners
-                    .get(srv.id())
-                    .and_then(|spinner| spinner.frame())
-            })
-            // Even if there's no spinner; reserve its space to avoid elements frequently shifting.
-            .unwrap_or(" ")
-            .to_string(),
-        None,
-    );
+
+    let frame_str = if !language_server
+        .and_then(|ls| context.spinners.get(ls.id()))
+        .map(|spinner| spinner.is_stopped())
+        .unwrap_or(true)
+    {
+        context.spinners.current_frame().to_string()
+    } else {
+        " ".to_string()
+    };
+
+    write(context, frame_str, None);
 }
 
 fn render_diagnostics<F>(context: &mut RenderContext, write: F)

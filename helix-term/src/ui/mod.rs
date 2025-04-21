@@ -9,7 +9,7 @@ pub mod overlay;
 pub mod picker;
 pub mod popup;
 pub mod prompt;
-mod spinner;
+pub(crate) mod spinner;
 mod statusline;
 mod text;
 mod text_decorations;
