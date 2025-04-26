@@ -1,3 +1,4 @@
+use crate::ui::{lsp::peek_popup::PeekPopup, PeekDefinition};
 use futures_util::{stream::FuturesOrdered, FutureExt};
 use helix_lsp::{
     block_on,
@@ -1003,6 +1004,123 @@ pub fn goto_definition(cx: &mut Context) {
         LanguageServerFeature::GotoDefinition,
         |ls, pos, doc_id| ls.goto_definition(doc_id, pos, None),
     );
+}
+
+pub fn peek_definition(cx: &mut Context) {
+    let (view, doc) = current_ref!(cx.editor);
+    let language_server =
+        language_server_with_feature!(cx.editor, doc, LanguageServerFeature::GotoDefinition);
+    let offset_encoding = language_server.offset_encoding();
+    let pos = doc.position(view.id, offset_encoding);
+
+    let future = language_server
+        .goto_definition(doc.identifier(), pos, None)
+        .unwrap();
+
+    cx.callback(
+        future,
+        move |editor, compositor, response: Option<lsp::GotoDefinitionResponse>| match response {
+            Some(lsp::GotoDefinitionResponse::Scalar(location)) => {
+                show_peek_definition_popup(editor, compositor, location, offset_encoding);
+            }
+            Some(lsp::GotoDefinitionResponse::Array(locations)) if !locations.is_empty() => {
+                show_peek_definition_popup(
+                    editor,
+                    compositor,
+                    locations[0].clone(),
+                    offset_encoding,
+                );
+            }
+            Some(lsp::GotoDefinitionResponse::Link(location_links))
+                if !location_links.is_empty() =>
+            {
+                let location_link = &location_links[0];
+                let location = lsp::Location::new(
+                    location_link.target_uri.clone(),
+                    location_link.target_range,
+                );
+                show_peek_definition_popup(editor, compositor, location, offset_encoding);
+            }
+            _ => {
+                editor.set_error("No definition found");
+            }
+        },
+    );
+}
+
+fn show_peek_definition_popup(
+    editor: &mut Editor,
+    compositor: &mut compositor::Compositor,
+    location: lsp::Location,
+    offset_encoding: OffsetEncoding,
+) {
+    let uri = match Uri::try_from(&location.uri) {
+        Ok(uri) => uri,
+        Err(err) => {
+            log::warn!("Invalid URI in definition response: {}", err);
+            editor.set_error("Invalid URI in definition response");
+            return;
+        }
+    };
+
+    let Some(path) = uri.as_path() else {
+        editor.set_error("Cannot peek definition: Not a local file");
+        return;
+    };
+    let doc = match Document::open(
+        path,
+        None,
+        Some(editor.syn_loader.clone()),
+        editor.config.clone(),
+    ) {
+        Ok(d) => d,
+        Err(err) => {
+            log::warn!("cannot open peek window target document: {}", err);
+            editor.set_error("Cannot open peek window target document");
+            return;
+        }
+    };
+
+    let language = doc
+        .language_config()
+        .map(|config| config.language_id.as_str())
+        .unwrap_or("text");
+
+    let path = doc.path().unwrap();
+    let path_display = doc
+        .path()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| String::from("[unnamed]"));
+
+    let pos = helix_lsp::util::lsp_pos_to_pos(doc.text(), location.range.start, offset_encoding)
+        .unwrap_or(0);
+    let text = doc.text();
+    let target_line = text.char_to_line(pos);
+    let start_line = target_line.saturating_sub(50);
+    let end_line = (target_line + 100).min(text.len_lines());
+    let target_line_offset = target_line - start_line;
+
+    let content: Vec<_> = text
+        .lines()
+        .skip(start_line)
+        .take(end_line)
+        .map(|l| l.to_string())
+        .collect();
+    let nb_lines = end_line - start_line;
+
+    let peek = PeekDefinition::new(
+        location.range.start,
+        path.clone(),
+        offset_encoding,
+        content,
+        language.to_string(),
+        path_display,
+        editor.syn_loader.clone(),
+    );
+
+    let popup =
+        PeekPopup::new(PeekDefinition::ID, peek, nb_lines, target_line_offset).auto_close(true);
+    compositor.replace_or_push(PeekDefinition::ID, popup);
 }
 
 pub fn goto_type_definition(cx: &mut Context) {

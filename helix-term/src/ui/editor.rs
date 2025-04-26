@@ -74,7 +74,7 @@ impl EditorView {
     pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
         &mut self.spinners
     }
-    
+
     pub fn spinners(&self) -> &ProgressSpinners {
         &self.spinners
     }
