@@ -21,6 +21,7 @@ pub use completion::Completion;
 pub use editor::EditorView;
 use helix_stdx::rope;
 use helix_view::theme::Style;
+pub use lsp::peek::PeekDefinition;
 pub use markdown::Markdown;
 pub use menu::Menu;
 pub use picker::{
