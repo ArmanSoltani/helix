@@ -70,6 +70,8 @@ pub struct Application {
     signals: Signals,
     jobs: Jobs,
     lsp_progress: LspProgressMap,
+
+    ipc_commands_stream: Option<crate::ipc::IPCCommandsStream>,
 }
 
 #[cfg(feature = "integration")]
@@ -248,6 +250,8 @@ impl Application {
         ])
         .context("build signal handler")?;
 
+        let ipc_commands_stream = crate::ipc::IPCCommandsStream::new()?;
+
         let app = Self {
             compositor,
             terminal,
@@ -256,6 +260,7 @@ impl Application {
             signals,
             jobs: Jobs::new(),
             lsp_progress: LspProgressMap::new(),
+            ipc_commands_stream,
         };
 
         tokio::spawn(Self::animation_timer());
