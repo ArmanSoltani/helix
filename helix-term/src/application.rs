@@ -71,7 +71,7 @@ pub struct Application {
     jobs: Jobs,
     lsp_progress: LspProgressMap,
 
-    ipc_commands_stream: Option<crate::ipc::IPCCommandsStream>,
+    ipc_commands_stream: crate::ipc::IPCCommandsStream,
 }
 
 #[cfg(feature = "integration")]
@@ -250,7 +250,12 @@ impl Application {
         ])
         .context("build signal handler")?;
 
-        let ipc_commands_stream = crate::ipc::IPCCommandsStream::new()?;
+        let ipc_commands_stream = match crate::ipc::IPCCommandsStream::new() {
+            Ok(s) => s,
+            Err(err) => {
+                panic!("Error when creating the ipc socket: {err}")
+            }
+        };
 
         let app = Self {
             compositor,
@@ -363,6 +368,11 @@ impl Application {
                         if _idle_handled {
                             return true;
                         }
+                    }
+                }
+                ipc_command = self.ipc_commands_stream.recv() => {
+                    if let Some(command) = ipc_command {
+                        log::info!("Read from socket '{command}'");
                     }
                 }
             }
