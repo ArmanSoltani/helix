@@ -3956,7 +3956,7 @@ fn execute_command_line(
     }
 }
 
-pub(super) fn execute_command(
+pub fn execute_command(
     cx: &mut compositor::Context,
     cmd: &TypableCommand,
     args: &str,

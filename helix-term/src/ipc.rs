@@ -38,7 +38,7 @@ impl IPCCommandsStream {
                 return None;
             }
 
-            return Some(line);
+            return Some(line.trim().to_string());
         }
 
         let stream = match self.listener.accept().await {
@@ -63,6 +63,6 @@ impl IPCCommandsStream {
         }
 
         self.stream = Some(stream);
-        Some(line)
+        Some(line.trim().to_string())
     }
 }

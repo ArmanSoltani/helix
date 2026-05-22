@@ -23,6 +23,7 @@ use tui::backend::Backend;
 
 use crate::{
     args::Args,
+    commands,
     compositor::{Compositor, Event},
     config::Config,
     handlers,
@@ -373,6 +374,7 @@ impl Application {
                 ipc_command = self.ipc_commands_stream.recv() => {
                     if let Some(command) = ipc_command {
                         log::info!("Read from socket '{command}'");
+                        self.handle_ipc_command(command);
                     }
                 }
             }
@@ -1128,6 +1130,35 @@ impl Application {
             };
         };
         lsp::ShowDocumentResult { success: true }
+    }
+
+    fn handle_ipc_command(&mut self, command: String) {
+        log::info!("Handle any ipc command: {command}");
+
+        let mut cx = crate::compositor::Context {
+            editor: &mut self.editor,
+            jobs: &mut self.jobs,
+            scroll: None,
+        };
+
+        let args: Vec<_> = command.split_whitespace().collect();
+        if args.is_empty() {
+            return;
+        }
+
+        if args[0] == "open" {
+            if args.len() != 2 {
+                log::warn!("Open ipc command must contains only one path, got: {command}");
+                return;
+            }
+
+            let cmd = commands::typed::TYPABLE_COMMAND_MAP.get("open").unwrap();
+            if let Err(err) =
+                commands::typed::execute_command(&mut cx, cmd, args[1], ui::PromptEvent::Validate)
+            {
+                log::error!("Error when executing fake open command: {err}")
+            };
+        }
     }
 
     async fn claim_term(&mut self) -> std::io::Result<()> {
