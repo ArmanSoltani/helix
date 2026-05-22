@@ -375,6 +375,7 @@ impl Application {
                     if let Some(command) = ipc_command {
                         log::info!("Read from socket '{command}'");
                         self.handle_ipc_command(command);
+                        self.render().await;
                     }
                 }
             }
