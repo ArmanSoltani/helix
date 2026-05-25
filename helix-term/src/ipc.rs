@@ -1,5 +1,6 @@
+use std::env;
+
 use anyhow::Error;
-use rand::distr::{Alphanumeric, SampleString};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     net::{UnixListener, UnixStream},
@@ -12,10 +13,12 @@ pub struct IPCCommandsStream {
 
 impl IPCCommandsStream {
     pub fn new() -> Result<Self, Error> {
-        let socket_rand_id = Alphanumeric.sample_string(&mut rand::rng(), 16);
-        let socket_name = format!("/tmp/hx-{socket_rand_id}");
+        let socket_path = match env::var("HELIX_IPC_SOCKET") {
+            Ok(path) => path,
+            Err(err) => panic!("Fail to read HELIX_IP_SOCKET env var: {err}"),
+        };
 
-        let listener = UnixListener::bind(socket_name)?;
+        let listener = UnixListener::bind(socket_path)?;
 
         Ok(Self {
             listener,
